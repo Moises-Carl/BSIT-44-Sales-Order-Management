@@ -1,0 +1,200 @@
+              Delivery and Shipment Management System
+
+1. Purpose and System Scope
+       The Delivery and Shipment Management System manages the full life of a shipment, from
+booking to proof of delivery, for a delivery company and its customers.
+
+The system is responsible for the following functions:
+
+       The system shall support shipment booking by allowing users to create a shipment with
+the sender, receiver, package details, and pickup and delivery addresses. It shall provide dispatch
+and assignment features that let dispatchers assign shipments to a delivery route and to a driver
+or courier. For tracking, the system shall record every status change and display the current status
+and full history to both staff and customers. It shall capture proof of delivery, including the
+receiver’s name, a signature or photo, and the delivery timestamp. The system shall also handle
+exceptions by recording failed deliveries, damaged items, returns, and reschedules. To support
+billing, it shall compute shipment charges based on weight, distance, and service type. For
+reporting, it shall produce daily dispatch, on-time delivery, and exception reports. Finally, it shall
+provide user and access management that controls what each role (admin, dispatcher, driver,
+and customer) can view and change.
+
+Out of scope for this version:
+
+   •   Route optimization algorithms, which are handled by an external routing service.
+   •   Payment gateway processing, which is handled by an external payment provider.
+   •   Warehouse inventory management.
+2. Entity Relationship Diagram
+The core data model has eight entities. Each shipment belongs to one customer and moves
+through many status events.
+
+
+
+
+Entities and attributes
+
+ Entity                Attributes                   Primary key   Foreign keys
+
+ CUSTOMER              customer_id, name,           customer_id   none
+                       contact_no, email,
+                       billing_address
+Entity            Attributes                       Primary key   Foreign keys
+
+ADDRESS           address_id, street, city,        address_id    none
+                  province, postal_code,
+                  latitude, longitude
+
+SHIPMENT          shipment_id, tracking_no,        shipment_id   customer_id,
+                  customer_id,                                   sender_address_id,
+                  sender_address_id,                             receiver_address_id,
+                  receiver_address_id,                           route_id
+                  service_type, status,
+                  weight_kg, declared_value,
+                  created_at
+
+SHIPMENT_ITEM     item_id, shipment_id,            item_id       shipment_id
+                  description, quantity,
+                  dimensions
+
+ROUTE             route_id, route_code,            route_id      none
+                  route_date, dispatch_status
+
+DRIVER            driver_id, full_name,            driver_id     none
+                  license_no, vehicle_plate,
+                  status
+
+STATUS_EVENT      event_id, shipment_id,           event_id      shipment_id,
+                  driver_id, status_code,                        driver_id
+                  remarks, event_timestamp
+
+PROOF_OF_DELIVE   pod_id, shipment_id,             pod_id        shipment_id
+RY                receiver_name, signature_file,
+                  photo_file, delivered_at
+Relationships and cardinality
+
+Relationship      From          To             Cardinality   Meaning
+
+CUSTOMER          CUSTOMER      SHIPMENT       1 to many     A customer books many
+books                                                        shipments; each
+SHIPMENT                                                     shipment has one
+                                                             customer.
+
+ADDRESS is        ADDRESS       SHIPMENT       1 to many     An address can be the
+sender of                                                    sender for many
+SHIPMENT                                                     shipments.
+
+ADDRESS is        ADDRESS       SHIPMENT       1 to many     An address can be the
+receiver of                                                  receiver for many
+SHIPMENT                                                     shipments.
+
+SHIPMENT          SHIPMENT      SHIPMENT_ITE   1 to many     A shipment has one or
+contains                        M                            more items.
+SHIPMENT_ITE
+M
+
+ROUTE carries     ROUTE         SHIPMENT       0 to many     A route is optional until
+SHIPMENT                                                     dispatch; a shipment is
+                                                             on at most one route at a
+                                                             time.
+
+DRIVER delivers   DRIVER        ROUTE          1 to many     A driver runs many
+ROUTE                                                        routes over time; each
+                                                             route has one driver.
+
+SHIPMENT has      SHIPMENT      STATUS_EVEN    1 to many     Every status change is
+STATUS_EVEN                     T                            stored as an event.
+T
+
+SHIPMENT has      SHIPMENT      PROOF_OF_DE    1 to 0..1     A delivered shipment has
+PROOF_OF_DE                     LIVERY                       one proof of delivery.
+LIVERY
+Notes
+   •    SHIPMENT.route_id is a nullable foreign key to ROUTE, so a shipment is on at most one
+        route at a time.
+
+
+3. Business Rules
+
+Shipment status
+A shipment moves through these statuses in order. Only the transitions shown are allowed.
+
+   1. BOOKED: shipment created, not yet picked up.
+   2. PICKED_UP: driver scanned the parcel at the sender address.
+   3. IN_TRANSIT: parcel is at a hub or on a route.
+   4. OUT_FOR_DELIVERY: driver has the parcel on the delivery route.
+   5. DELIVERED: proof of delivery recorded. Final status.
+   6. FAILED_ATTEMPT: delivery was tried and failed; returns to OUT_FOR_DELIVERY or
+        moves to RETURNED.
+   7. RETURNED: parcel is returned to the sender. Final status.
+   8. CANCELLED: booking cancelled before PICKED_UP. Final status.
+
+Validation rules
+   •    Every shipment must have a sender address, a receiver address, and at least one item.
+   •    weight_kg must be greater than 0 and no more than 70 kg for standard service.
+   •    declared_value must be 0 or greater; a shipment with a declared value above 50,000 PHP
+        requires dispatcher approval.
+   •    tracking_no is unique across all shipments and is generated by the system, never typed
+        by staff.
+   •    A status change must include a timestamp and the user or driver who made it.
+
+Dispatch and delivery rules
+   •    A shipment can be assigned to a route only when its status is BOOKED or PICKED_UP.
+   •    A shipment can be on one route at a time. Reassigning it removes it from the previous
+        route.
+   •    A driver can carry at most 60 shipments per route.
+   •    A PROOF_OF_DELIVERY record is required before a shipment can move to
+        DELIVERED.
+   •   A shipment in FAILED_ATTEMPT can be attempted up to 3 times. After the third failed
+       attempt, it moves to RETURNED unless the customer requests a reschedule.
+
+Billing rules
+   •   Charges are computed from the service type, the chargeable weight (the higher of actual
+       or volumetric weight), and the distance zone.
+   •   Cancelled shipments before PICKED_UP are not billed.
+
+
+4. Integration Requirements
+The Delivery and Shipment Management System is one of five modules of the e-commerce ERP.
+The other four are Sales/Order Management, Inventory, Product/Catalog, and Billing/Payment.
+This section defines what the delivery module receives from and provides to each of them, so that
+all five modules work from the same data. Each row lists what the delivery module receives and
+what it provides.
+ERP module      Receives from it           Provides to it             Method   Frequency
+
+Sales/Order     Order ID, customer,        Shipment ID, tracking               Real time
+Management      receiver name and          number, every status
+                contact, delivery          change, delivery
+                address, order items       confirmation with
+                (product ID and            proof of delivery,
+                quantity), service type,   failed delivery and
+                declared value, order      return notices
+                status (confirmed or
+                cancelled)
+
+Inventory       Packed-and-ready           Pickup event so stock               Real time,
+                signal and pickup          is deducted; return                 on each
+                location (warehouse        event with item                     status
+                address) for each order    condition (good or                  event
+                item                       damaged) so stock is
+                                           restored or written off;
+                                           cancellation event so
+                                           reserved stock is
+                                           released
+
+Product/Catal   Product ID or SKU,         Nothing is written                  On
+og              name, weight,              back; product IDs are               demand, at
+                dimensions, and fragile    only referenced on                  booking
+                or special-handling flag   shipment items
+                for each shipment item
+ERP module      Receives from it           Provides to it         Method   Frequency
+
+Billing/Payme   Payment status of the      Shipping charge                 Charge at
+nt              order (paid, pending, or   (shipment ID, order             booking;
+                cash on delivery), COD     ID, service type,               final
+                amount to collect,         chargeable weight,              charge at
+                invoice reference          zone, amount); COD              pickup;
+                                           amount collected at             COD at
+                                           delivery; no-charge             delivery
+                                           notice for cancelled
+                                           shipments; refund
+                                           trigger for returns
+

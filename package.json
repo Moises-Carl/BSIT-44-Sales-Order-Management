@@ -1,0 +1,14 @@
+{
+  "name": "minierp-sales-order",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.14" },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "demo": "node src/server.mjs --demo",
+    "test": "node --test --test-concurrency=1 tests/*.test.mjs",
+    "db:init": "node src/init-mysql.mjs"
+  },
+  "dependencies": { "mysql2": "^3.14.0" }
+}

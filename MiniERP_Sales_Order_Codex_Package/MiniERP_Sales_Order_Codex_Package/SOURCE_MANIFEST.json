@@ -1,0 +1,169 @@
+{
+  "package": "Mini-ERP Sales/Order Codex handoff",
+  "snapshot_date": "2026-10-21",
+  "application_source_included": false,
+  "database_execution_verified": false,
+  "files": [
+    {
+      "path": "CODEX_PROMPT.md",
+      "kind": "handoff",
+      "origin": "Generated from the user-authorized implementation prompt",
+      "size_bytes": 14329,
+      "sha256": "a9e3fd3d000b4ba2a062dbea8aefa69c1968a0abf2245f90e9001261e3c5f810"
+    },
+    {
+      "path": "README_START_HERE.md",
+      "kind": "handoff",
+      "origin": "Generated package instructions",
+      "size_bytes": 2451,
+      "sha256": "be5bf7c9e85370ab12d90bb21675f3641125f39ef1c9bd12b4fcfd4f9ca322c1"
+    },
+    {
+      "path": "INTEGRATION_REVIEW.md",
+      "kind": "analysis",
+      "origin": "Static comparison of packaged references",
+      "size_bytes": 5094,
+      "sha256": "1673e8a1472f8bbb343e45bd2c1ed31e92bdf87ce86935f58c193d59a8890362"
+    },
+    {
+      "path": "references/00_combined/System_1_and_2_Document.pdf",
+      "kind": "original",
+      "origin": "User-supplied Facebook CDN PDF link",
+      "size_bytes": 272089,
+      "sha256": "29fde37e26a486a3fd262e151892b2826d34eecdf59fa1a4953522211d26c641"
+    },
+    {
+      "path": "references/00_combined/System1_and_2.sql",
+      "kind": "original",
+      "origin": "User-supplied Facebook CDN SQL link",
+      "size_bytes": 5885,
+      "sha256": "31e7c6720a07fa2d0e14b132ace57b544c7f3bf17dfd061d736a7445196765cd"
+    },
+    {
+      "path": "references/02_sales/Sales_Order_Management_Mini-ERP.docx",
+      "kind": "original",
+      "origin": "https://drive.google.com/file/d/1jj_OV8EC5igiMXg7MYo_qpy9CTrzLGdE/view",
+      "size_bytes": 393038,
+      "sha256": "0853717f64248bde15d59e6019496ab620d52a9751a60cf0a74fba0121240a88"
+    },
+    {
+      "path": "references/03_inventory/INVENTORY-MANAGEMENT-DELIVERABLES.pdf",
+      "kind": "original",
+      "origin": "https://drive.google.com/file/d/1BkqLgZx-KHdKCQeOLpY7AJZb0pKNb1sz/view",
+      "size_bytes": 1054616,
+      "sha256": "733b6fccfbda443fde54e147976d531af9f763e3e0b49c17f6defe3269dd08c4"
+    },
+    {
+      "path": "references/04_billing/Billing_and_Payment_Management_export.txt",
+      "kind": "source_export",
+      "origin": "https://docs.google.com/document/d/1XRukgk4Atp-_z4zCgB5pbRWcHvDx0yjcnYhiyDUKeuA/export?format=txt",
+      "size_bytes": 7037,
+      "sha256": "0892d5fb972872469afd21ace0ce48453be16353f40262a0c68c5041753b5dfa"
+    },
+    {
+      "path": "references/04_billing/Billing_and_Payment_Management_export.docx",
+      "kind": "source_export",
+      "origin": "https://docs.google.com/document/d/1XRukgk4Atp-_z4zCgB5pbRWcHvDx0yjcnYhiyDUKeuA/export?format=docx",
+      "size_bytes": 409058,
+      "sha256": "dfe7ca62b873edb6768a7f35ff65702c5e0b77b21cc38a88496e08c080d4fa11"
+    },
+    {
+      "path": "references/05_delivery/Delivery_and_Shipment_Management_System.pdf",
+      "kind": "original",
+      "origin": "https://drive.google.com/file/d/1VIUKl9NwT5PJFqhTn8NN_YNRV_wNAVHl/view",
+      "size_bytes": 297912,
+      "sha256": "9863895c819bc8e1c425f58cda8b6d530eaef95f2e606a9f79d3cf73888b1d48"
+    },
+    {
+      "path": "references/01_catalogue/BUSINESS_RULES_2_.png",
+      "kind": "original",
+      "origin": "https://drive.google.com/file/d/1kCWpNdoesuUxARQPfmlRFOGK6LvIW8rZ/view",
+      "size_bytes": 176022,
+      "sha256": "0e3782a0f6f754be788c1e9ccb3a58c8d21629654617c4ca76496815738a10ea"
+    },
+    {
+      "path": "references/01_catalogue/BUSINESS_RULES.png",
+      "kind": "original",
+      "origin": "https://drive.google.com/file/d/1xoak9WcVg47YmWLjJGEzsGBKGktsUkEB/view",
+      "size_bytes": 68419,
+      "sha256": "653352a71a08f8ba967b786f553a8f3d5ae55f0d7a1350b37de044ebdfc3817f"
+    },
+    {
+      "path": "references/01_catalogue/ENTITIES_AND_ATTRIBUTES.png",
+      "kind": "original",
+      "origin": "https://drive.google.com/file/d/1wGJfdn_Q9PdRP1SazGbVGVNLckii1zW9/view",
+      "size_bytes": 68047,
+      "sha256": "2b5dcaf4d6efe289d6a784dd32730c522991624f8ce221948313e52caf38cc8d"
+    },
+    {
+      "path": "references/01_catalogue/ENTITIES_AND_ATTRIBUTES_2_.png",
+      "kind": "original",
+      "origin": "https://drive.google.com/file/d/14Db3WVshE8Sgv4R3zownAoHk3gs9HYQT/view",
+      "size_bytes": 118874,
+      "sha256": "c2a9d08b3327e8da18b8696e92bcb30e6930e03f47cbbb2aab3fc8d3ad4a6354"
+    },
+    {
+      "path": "references/01_catalogue/ENTITIES_AND_ATTRIBUTES_3_.png",
+      "kind": "original",
+      "origin": "https://drive.google.com/file/d/1dcc3PPzflzSJdf7augsSR_gYDhgfhrIL/view",
+      "size_bytes": 69085,
+      "sha256": "a57f7e09aa7b51715482560fab3b1149d7b8b6e65be0dbce87b6a34b0e1f80d5"
+    },
+    {
+      "path": "references/01_catalogue/ENTITIES_AND_ATTRIBUTES_4_.png",
+      "kind": "original",
+      "origin": "https://drive.google.com/file/d/1oYqRoYcDwQteXqSvYiTTmR3G8eK2xyS6/view",
+      "size_bytes": 96221,
+      "sha256": "385013f558531611006b313998d68569614ee83c65779031e151e6ec6d8a6d0d"
+    },
+    {
+      "path": "references/01_catalogue/ERD_.png",
+      "kind": "original",
+      "origin": "https://drive.google.com/file/d/1w89RuL-NHMDALMdwzNglnEc-SH35kuvr/view",
+      "size_bytes": 45385,
+      "sha256": "4fa74f983d9e736a60976c0d93d4727f538332e4b367e0796cbb0fa4f56dbe8e"
+    },
+    {
+      "path": "references/01_catalogue/PURPOSE_OF_THE_SYSTEM.png",
+      "kind": "original",
+      "origin": "https://drive.google.com/file/d/1053qKBj8HDUB-hKWfvyNXmFa-SqRwZNf/view",
+      "size_bytes": 180825,
+      "sha256": "d12a24de743eb3503cffca5a53f3b103fffcc36fdcbfac07d0198497ff9ea5a2"
+    },
+    {
+      "path": "references/01_catalogue/RELATIONSHIPS_AND_CARDINALITIES.png",
+      "kind": "original",
+      "origin": "https://drive.google.com/file/d/1TWGQBqLjnFeUZXHV7rTtz3z6Br2RngUl/view",
+      "size_bytes": 119049,
+      "sha256": "bb55073f4fb93849cebcee7e55669f11b903847f8f592cebdcda307209664031"
+    },
+    {
+      "path": "text_extracts/Combined_Integration.txt",
+      "kind": "text_extract",
+      "origin": "references/00_combined/System_1_and_2_Document.pdf",
+      "size_bytes": 26190,
+      "sha256": "f77ba6cea82aa498113913c6f9fecca9e153857c093dab129e80f1e4de11794b"
+    },
+    {
+      "path": "text_extracts/Sales_Order_Management.txt",
+      "kind": "text_extract",
+      "origin": "references/02_sales/Sales_Order_Management_Mini-ERP.docx",
+      "size_bytes": 26676,
+      "sha256": "4c5e02a8fe1f4246c788f54f37bdb99893da7838d005872ecc20f0f614def6e4"
+    },
+    {
+      "path": "text_extracts/Inventory_Management.txt",
+      "kind": "text_extract",
+      "origin": "references/03_inventory/INVENTORY-MANAGEMENT-DELIVERABLES.pdf",
+      "size_bytes": 38156,
+      "sha256": "52aa6a2b9e1145379ff93b2e0a896134224662c0952a9bb8042b8777756624c5"
+    },
+    {
+      "path": "text_extracts/Delivery_Shipment_Management.txt",
+      "kind": "text_extract",
+      "origin": "references/05_delivery/Delivery_and_Shipment_Management_System.pdf",
+      "size_bytes": 10417,
+      "sha256": "757f0456a51cb7e7a0d8328c826119346144fc501338198d1995bc6b352946ec"
+    }
+  ]
+}

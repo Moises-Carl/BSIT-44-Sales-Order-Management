@@ -1,0 +1,143 @@
+﻿Universidad de Manila - Login     
+                
+UNIVERSIDAD DE MANILA
+   
+        
+        
+E-COMMERCE: BILLING AND PAYMENT MANAGEMENT
+
+
+A Project Presented to the 
+College of Computing Studies
+Universidad de Manila
+
+
+In Partial Fulfillment of the Requirements for the Course  
+System Integration and Architecture & Platform Technology
+
+
+By
+Arizala, Joanne Mikkylla
+Caparroso, Jason B.
+Mangalile, Lawrence Ian C.
+Parambita, Carl Felicithy D.
+Sales, Keith Ashly V. 
+
+
+Prof. Wilber Sabado
+Adviser
+
+
+October 2026
+________________
+1. Purpose and System Scope
+1.1 Purpose
+ The purpose of the Billing and Payment Management System is to calculate the amount due for customer orders, create billing records or invoices, record payment attempts and their results, and track payment status. The system will serve as the financial transaction component of the e-commerce platform, ensuring that each payment is associated with the correct order and that payment information is communicated to the Sales/Order Management System and other relevant systems.
+1.2 System Scope
+The Billing and Payment Management System will be responsible for the following functions:
+- Bill/Invoice Creation: Create billing records based on the order ID, order total, and customer or billing details received from Sales/Order Management.
+- Payment Recording: Record payment attempts, payment methods, transaction references, payment amounts, and transaction results.
+- Payment Status Tracking: Monitor whether payments are pending, successful, failed, cancelled, or refunded.
+- Payment Validation: Verify that payment requests reference valid billing records and that payment amounts are consistent with the amount due.
+- Payment Confirmation: Provide payment results and transaction references to Sales/Order Management so that the order's payment information can be updated.
+- Billing Records Management: Maintain billing and payment history for authorized users and administrators.
+
+
+- Refund Recording: Record refund transactions and their statuses when refunds are supported by the project.
+System boundaries
+Category
+	Description
+	Manages
+	Bills/invoices, payment records, payment methods, amounts, payment status.
+	Receives
+	Order ID, order total, customer or billing details, payment requests and results.
+	Provides
+	Invoice or billing records, payment status, transaction references, payment results.
+	Does not manage        Product catalog, physical stock, order creation, or shipment tracking
+2. Entity Relationship Diagram
+
+________________
+
+
+
+
+3. Business Rules
+The following rules define the constraints and validations that the Billing and Payment Management System must follow.
+Rule ID        Business rule
+BR-01        Every billing record must be associated with a valid order ID provided by Sales/Order Management.
+BR-02        The billing amount must correspond to the confirmed order total received from Sales/Order Management.
+BR-03        The system must generate a unique billing ID for each billing record.
+BR-04        A payment record must be linked to an existing billing record or order.
+BR-05        The payment amount must match the outstanding amount due unless partial payments or other payment arrangements are explicitly supported.
+BR-06        The system must accept only supported payment methods configured for the e-commerce project.
+BR-07        A payment must not be marked as successful until its result has been verified through the agreed payment confirmation process.
+BR-08        Duplicate payment requests must not create duplicate payment records or cause the same payment to be processed more than once.
+BR-09        Order status and payment status must be maintained separately. Creating an order does not automatically mean that it has been paid.
+BR-10        Failed or cancelled payment attempts must not be recorded as successful payments.
+BR-11        A refund must reference an existing payment and must not exceed the remaining refundable amount.
+
+
+BR-12        Payment status changes must be recorded and communicated to Sales/Order Management when relevant.
+BR-13        Only authorized users or services may access restricted billing information or perform administrative payment actions.
+BR-14        Each payment transaction must have a unique reference or another reliable method of identifying duplicate requests.
+3.1 Payment Status Handling
+The system will use the following statuses to identify the outcome of each payment transaction.
+Status        Description
+Pending        The payment request has been recorded but has not yet been confirmed.
+Processing        The payment is being processed or awaits confirmation.
+Successful        The payment has been verified and recorded as successful.
+Failed        The payment attempt was unsuccessful or rejected.
+Cancelled        The payment attempt was cancelled before successful completion.
+Refunded        The applicable refund has been completed and confirmed.
+
+
+
+
+________________
+
+
+
+
+4. Integration Requirements
+The Billing and Payment Management System must exchange information with the other systems to ensure that billing totals, payment results, order statuses, and shipment eligibility remain consistent throughout the e-commerce process.
+4.1 Data Received by the Billing and Payment Management System
+The following table identifies the information your system should receive from each group.
+Source System
+	Data to Receive
+	Purpose
+	Sales/Order Management
+	* Order ID, order total, customer ID, customer or billing details, and order status.
+* Payment request, requested amount, and selected payment method
+* Order cancellation or other relevant order updates
+	* Create the billing record and associate it with the correct order..
+* Create and validate a payment transaction.
+* Determine whether a pending billing or payment transaction needs further action.
+	Payment provider or payment simulation
+	Transaction reference, payment amount, payment method, payment result, and confirmation details
+	Verify and record the payment outcome.
+	Delivery/Shipment
+	COD collection confirmation and transaction reference, where applicable.
+	Record payment collected upon delivery..
+	
+
+
+
+
+
+
+
+
+
+4.2 Data Sent by the Billing and Payment Management System
+Destination System
+	Data to Send
+	Purpose
+	Sales/Order Management
+	Billing ID, order ID, amount due, payment status, transaction reference, and payment result
+	 Update the order's payment information and support the next stage of order processing
+	Inventory Management
+	Relevant payment confirmation or order-release event, if required by the agreed workflow.
+	Support the inventory group's order-processing rules without changing stock directly.
+	Delivery/Shipment
+	Order ID, payment status, payment eligibility, and COD-related information, where applicable.
+	Help determine whether shipment processing may proceed under the agreed fulfillment rules.

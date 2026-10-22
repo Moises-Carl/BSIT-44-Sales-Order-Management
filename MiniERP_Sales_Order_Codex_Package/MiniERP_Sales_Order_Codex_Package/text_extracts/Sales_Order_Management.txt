@@ -1,0 +1,410 @@
+MINI-ERP PROJECT
+SALES/ORDER MANAGEMENT SYSTEM
+System Scope, Database Design, Business Rules, and Integration Requirements
+
+
+
+
+
+Prepared by:
+Moises, Carl John
+Baello, Keith Ivan
+Doroja, Crismaksim
+Ruiz, Sevastian Dwane
+Ponce, Robin
+Areolla, Reizen
+
+
+
+Mr. Wlber, Sabado
+Adviser
+
+
+October 2026
+1. PURPOSE AND SYSTEM SCOPE
+1.1 System Overview
+The Mini-ERP project consists of five interconnected systems: Product/Catalog Management, Sales/Order Management, Inventory Management, Billing/Payment Management, and Delivery/Shipment Management. Each system performs a specific business function while exchanging information with the other systems to support a complete transaction. Clear ownership of records and responsibilities is necessary to prevent duplicate data, conflicting updates, and overlapping functions.
+Within this structure, the Sales/Order Management System maintains the customer’s purchase record. It identifies the customer, records the selected seller offers and quantities, preserves the accepted purchase prices, and tracks the progress of the order. It also coordinates the transfer of order information to Inventory, Billing, and Delivery at the appropriate stages of processing.
+This document presents the proposed responsibilities, logical database structure, business rules, and integration requirements of the Sales/Order Management System. The design remains independent of a specific database platform because the selection between Firebase and Supabase has not yet been finalized. Shared workflow decisions must also be reviewed with the affected groups before implementation.
+1.2 Purpose of the System
+The purpose of the Sales/Order Management System is to provide an organized and reliable method of recording and monitoring customer orders. It maintains a consistent record of what the customer agreed to purchase, including the selected offers, quantities, prices, and recipient details. These records serve as the basis for stock reservation, billing, and fulfillment.
+
+
+The system also supports coordination between the other Mini-ERP modules. It requests stock reservation from Inventory, supplies order information to Billing, and authorizes fulfillment after the required conditions have been met. Throughout this process, Sales updates the order’s overall status using verified results from the responsible systems.
+An important requirement is the preservation of transaction history. A submitted order must retain the accepted purchase prices even when the seller changes the catalog prices afterward. This allows customers and authorized personnel to review an order using the details that applied when the purchase was submitted.
+1.3 Functional Scope
+The system covers order preparation, submission, monitoring, and eligible cancellation. Customers may prepare draft orders by selecting seller offers and entering quantities. Before submission, the system validates the required information, checks the selected offers, calculates the total amount, and presents any price changes for customer acceptance.
+After submission, the system coordinates stock reservation and billing. Once payment is verified and a valid stock reservation is confirmed, Sales sends the information required for fulfillment. The system continues to receive progress updates until the order is completed or properly cancelled.
+Function
+Description
+Customer information management
+Maintain or reference customer contact information required for order processing, subject to the shared ownership agreement.
+Order creation
+Create a draft order associated with a customer.
+Order item management
+Allow items and quantities to be changed while the order remains a draft.
+Offer validation
+Confirm that selected seller offers exist and remain active before submission.
+Purchase price recording
+Preserve the unit price accepted when the order is submitted.
+Amount calculation
+Calculate line totals and the total product amount.
+Stock coordination
+Request reservation and receive reservation, rejection, expiry, or release results.
+Billing coordination
+Submit order details for billing after successful stock reservation.
+Fulfillment coordination
+Request fulfillment after verified payment and confirmation of reserved stock.
+Status monitoring
+Maintain the order’s current status and record its status history.
+Cancellation handling
+Coordinate eligible cancellation with Inventory and Billing.
+Order history
+Allow customers and authorized personnel to review relevant order records.
+
+1.4 Responsibility Boundaries
+Sales/Order Management owns the order records, ordered items, and order-status history. It does not directly maintain the operational records assigned to the other systems. For example, Sales may request that Inventory reserve two units, but Inventory determines whether the reservation succeeds and records the corresponding stock changes.
+
+The same separation applies to payment and delivery information. Billing verifies payment results, while Delivery records shipment progress and delivery confirmation. Sales uses those results to update the overall order status. This arrangement allows each system to remain responsible for the accuracy of the records it maintains.
+System
+Authoritative responsibilities
+Product/Catalog Management
+Products, categories, sellers, seller offers, current prices, and offer status
+Inventory Management
+Stock balances, reservations, reservation expiry, stock deductions, and movement history
+Sales/Order Management
+Customer purchase records, ordered items, accepted prices, order totals, and order status
+Billing/Payment Management
+Invoices, payment attempts, payment verification, transaction references, and refunds
+Delivery/Shipment Management
+Shipments, courier assignments, tracking information, shipment status, and delivery confirmation
+1.5 Proposed Initial Demonstration Scope
+For the initial demonstration, the proposed design limits each order to products offered by one seller and uses Philippine pesos as the transaction currency. All requested items must be successfully reserved before payment is requested. Partial fulfillment and split shipments are excluded to keep the first integration manageable.
+Customer cancellation is proposed before successful payment, subject to confirmation that any reservation has been released and that payment has not succeeded. Paid cancellations, returns, and refunds are outside the proposed initial scope. The order total represents the product amount only. Shipping fees, taxes, and discounts must be included only after the groups agree on their calculation and ownership. These restrictions are proposed implementation limits rather than finalized class-wide rules. The affected groups must confirm them before development proceeds.
+2. DATABASE DESIGN AND ENTITY RELATIONSHIPS
+2.1 Design Overview
+The proposed database structure separates the main order record from its individual items and status-history entries. This allows one order to contain several products without repeating customer and recipient information for every item. It also allows status changes to be recorded separately while keeping the current status available in the main order record.
+The Sales design includes Customer, Sales Order, Order Item, and Order Status History. Seller Offer is shown as an external entity because Product/Catalog Management owns it. Sales references the existing offer identifier rather than creating a separate catalog.
+Customer ownership remains a shared decision. This proposal places customer contact records under Sales. If the class establishes a shared customer or account entity, Sales should reference that record and adjust the design accordingly. Customer authentication must follow the shared account arrangement rather than introducing a separate password database within Sales.
+2.2 Entity-Relationship Diagram
+Figure 1. Proposed Logical Entity-Relationship Diagram of the Sales/Order Management System.
+The diagram shows the relationships between customers, orders, ordered items, seller offers, and status-history records. A customer may place several orders, and each order may contain several items. Each item references one seller offer, allowing the system to identify the selected product and seller arrangement.
+The diagram permits an order to have no items while it is a draft. However, the submission rules require at least one valid item before processing can begin. Seller Offer remains under Product/Catalog ownership even though it appears in the Sales diagram.
+2.3 Entity and Attribute Definitions
+The following tables describe the proposed attributes and their purpose. Primary keys uniquely identify records, while foreign keys represent relationships with other entities. If a document database is selected, equivalent record references and validation rules must preserve these relationships.
+
+2.3.1 Customer
+The Customer entity stores basic contact information used during order processing. Each customer receives a unique identifier that can be referenced by multiple orders. Contact details in the customer record may change over time, while submitted orders retain their own recipient information.
+Attribute
+Key or Constraint
+Description
+customer_id
+PK
+Unique customer identifier
+customer_name
+Required
+Customer’s name
+email
+Optional
+Customer’s email address
+contact_number
+Required
+Customer’s contact number
+created_at
+Required
+Date and time the record was created
+2.3.2 Sales Order
+The Sales Order entity stores the main purchase record. It identifies the customer, records the order total and current status, and preserves the recipient details submitted for the transaction. A unique order number provides a readable reference for customers and staff.
+The submission reference supports duplicate prevention. If the same submission is retried because of a repeated click or interrupted connection, the system should identify the existing submission instead of creating another order.
+Attribute
+Key or Constraint
+Description
+order_id
+PK
+Unique internal order identifier
+order_number
+Unique, required
+Order reference displayed to users
+customer_id
+FK, required
+References the customer
+submission_reference
+Unique when assigned
+Identifies a submission attempt
+order_date
+Optional until submission
+Date and time of submission
+order_status
+Required
+Current order status
+order_total
+Required, nonnegative
+Total product amount
+recipient_name
+Required before submission
+Intended recipient
+recipient_contact
+Required before submission
+Contact number for the order
+requested_delivery_address
+Required before submission
+Address submitted for delivery
+cancellation_reason
+Optional
+Reason for cancellation
+created_at
+Required
+Record creation timestamp
+updated_at
+Required
+Most recent update timestamp
+2.3.3 Order Item
+The Order Item entity records each selected seller offer within an order. It stores the quantity and accepted unit price, allowing the system to calculate the item’s contribution to the order total. The product name is also preserved to keep the historical record understandable if the catalog description changes.
+The accepted price belongs to the transaction record. It must remain unchanged after submission even if Product/Catalog later updates the current selling price. Within a single order, the same offer should appear only once, with additional selections increasing its quantity.
+Attribute
+Key or Constraint
+Description
+order_item_id
+PK
+Unique order item identifier
+order_id
+FK, required
+References the parent order
+offer_id
+FK, required
+References the selected seller offer
+product_name_at_order
+Required
+Product name preserved at submission
+quantity
+Positive integer
+Number of units ordered
+unit_price_at_order
+Nonnegative
+Accepted price per unit
+line_total
+Calculated
+Quantity multiplied by accepted unit price
+The combination of order_id and offer_id must be unique.
+2.3.4 Order Status History
+The Order Status History entity provides a record of how an order progressed. Each entry identifies the previous status, new status, time of change, and source responsible for the update. This supports order review and investigation when information from the connected systems needs clarification.
+Events received from another system may include a unique source-event reference. Recording that reference helps prevent the same notification from changing the order more than once.
+
+Attribute
+Key or Constraint
+Description
+history_id
+PK
+Unique history identifier
+order_id
+FK, required
+References the affected order
+previous_status
+Optional for initial entry
+Status before the change
+new_status
+Required
+Status after the change
+changed_at
+Required
+Date and time of change
+change_source
+Required
+Responsible user or connected system
+actor_reference
+Optional
+Identifier of the responsible actor
+reason
+Optional
+Explanation for the change
+source_event_reference
+Unique when supplied
+Reference used to recognize a repeated event
+2.3.5 Seller Offer — External Reference
+Seller Offer identifies a particular product offered by a seller. Product/Catalog Management owns this entity and provides the information needed by Sales to validate the selection. The attributes below represent the minimum information expected for integration and must be aligned with the Catalog group’s final design.
+Referenced Attribute
+Description
+offer_id — PK
+Unique offer identifier
+product_id — FK
+Reference to the product
+seller_id — FK
+Reference to the seller
+current_price
+Current selling price
+offer_status
+Active or inactive status
+
+2.4 Relationships and Cardinalities
+Relationship
+Cardinality and participation
+Customer–Sales Order
+A customer may have zero or many orders. Every order belongs to exactly one customer.
+Sales Order–Order Item
+A draft may contain zero or many items. A submitted order must contain at least one. Every item belongs to exactly one order.
+Seller Offer–Order Item
+A seller offer may appear in zero or many order items. Every order item references exactly one offer.
+Sales Order–Order Status History
+An order may have zero or many history entries. Every entry belongs to exactly one order.
+
+3. BUSINESS RULES
+3.1 Order Creation and Submission
+Every order must have a unique identifier and reference an existing customer. Draft orders may be edited, allowing customers to revise their selections before submission. Submission requires at least one valid item, positive whole-number quantities, and complete recipient details.
+Selected offers must exist and remain active when the order is submitted. Under the proposed initial scope, all offers must belong to the same seller. Once submitted, the item details, accepted prices, quantities, and recipient information become locked. This prevents changes from conflicting with reservations, invoices, or fulfillment requests already created by the other systems.
+
+Rule
+Requirement
+BR-01
+Every order must have a unique order ID and order number.
+BR-02
+Every order must reference an existing customer.
+BR-03
+Submission requires complete recipient details and at least one valid item.
+BR-04
+Selected offers must exist and be active at submission.
+BR-05
+Quantities must be positive whole numbers.
+BR-06
+Repeated selection of the same offer increases its quantity.
+BR-07
+One order contains offers from one seller under the proposed initial scope.
+BR-08
+Submitted order details are locked under the initial workflow.
+3.2 Price Preservation and Amount Calculation
+The system must obtain selling prices from validated Catalog information. If a price changes between item selection and submission, Sales must display the updated amount and obtain customer acceptance before continuing. After submission, the accepted price is preserved in the order item.
+Line totals and order totals are calculated by the system. If these calculated amounts are stored, they must remain consistent with the quantities and accepted prices. Monetary values must use an agreed representation, such as decimal amounts with two decimal places or integer centavos.
+Line Total = Quantity × Unit Price at Order
+Order Total = Sum of All Line Totals
+For example, an order containing two keyboards priced at ₱800.00 each has a product total of ₱1,600.00. A later catalog price of ₱850.00 must not change the submitted order.
+3.3 Stock Reservation and Payment
+Sales must receive complete reservation confirmation from Inventory before requesting payment. An availability check alone does not guarantee that stock has been secured. Inventory remains responsible for preventing over-reservation and maintaining accurate stock records.
+If any item cannot be reserved, the order must not proceed to payment. Any partial reservation must be released through Inventory. Once all items are reserved, Billing may create the billing record and process payment. Sales may confirm the order only after Billing verifies payment and Inventory confirms that the reservation remains valid.
+Payment failure may allow another attempt while the reservation remains active. If the reservation expires, fulfillment must be blocked and cancellation coordination must begin. A payment received after reservation expiry requires reconciliation before the order can continue.
+3.4 Order Status Handling
+Order status represents the overall progress of the purchase. Payment status and shipment status remain separate records maintained by Billing and Delivery. Sales updates its order status only after validating the results received from those systems.
+Status
+Meaning
+Normal next status
+Draft
+Order is being prepared and remains editable.
+Pending Stock or Cancelled
+Pending Stock
+Submitted order awaits complete reservation confirmation.
+Awaiting Payment or Cancellation Pending
+Awaiting Payment
+Stock is reserved and payment remains unverified.
+Confirmed or Cancellation Pending
+Confirmed
+Payment is verified and the reservation is valid.
+Fulfilling
+Fulfilling
+Delivery accepted the fulfillment request.
+Completed
+Completed
+Delivery is verified and payment remains confirmed.
+None under the initial scope
+Cancellation Pending
+Required cancellation checks and releases are in progress.
+Cancelled after confirmation
+Cancelled
+Cancellation is complete.
+None
+
+These transitions describe the normal workflow. Conflicting or unexpected results must be reconciled before another status change is accepted. Every accepted transition must create a status-history entry.
+3.5 Cancellation and Exception Handling
+Cancellation of a submitted order requires coordination because Inventory may already hold stock and Billing may already have started payment processing. While cancellation is pending, fulfillment must remain blocked. Sales may mark the order Cancelled only after confirming that payment has not succeeded and that no active reservation remains.
+If payment succeeds while cancellation is being processed, the system must hold the order for reconciliation. It must not silently cancel a paid order or authorize shipment without verifying stock. Paid cancellation and refund procedures remain outside the proposed first demonstration.
+
+
+Situation
+Required response
+Inactive offer
+Prevent submission and identify the affected item.
+Changed price
+Present the updated amount for acceptance.
+Insufficient stock
+Prevent payment and coordinate release of partial reservations.
+Reservation timeout
+Keep the request unresolved and check the original request reference.
+Failed payment
+Permit retry while the reservation remains valid.
+Expired reservation
+Block fulfillment and begin cancellation coordination.
+Delivery failure
+Keep the order unresolved and display the Delivery result.
+Repeated submission
+Return the existing submission instead of creating a duplicate.
+Duplicate or outdated event
+Validate the event reference and current order state before applying it.
+3.6 Access Control and Record Retention
+Customers may create orders, review their own records, edit their drafts, and request eligible cancellation. Authorized staff may perform actions permitted by their assigned role. Connected systems may submit results only for the functions they own. Neither customers nor sales staff may manually bypass stock or payment verification.
+Submitted orders, item records, and status history must remain available for review. Ordinary user actions must not permanently delete these records because they may be referenced by Inventory, Billing, or Delivery.
+
+4. INTEGRATION REQUIREMENTS
+4.1 Integration Approach
+The Sales/Order Management System exchanges information with all four other systems. Each exchange must identify the relevant order and provide enough information for the receiving system to perform its responsibility. The implementation may use shared database operations, APIs, or events, provided that ownership and validation rules remain consistent.
+Order IDs must be shared across the connected records. Item-level responses must identify the affected order items, while reservation, billing, and fulfillment requests must include unique request references. Repeated requests must be recognized safely to prevent duplicate processing.
+4.2 Product/Catalog Management
+Sales receives offer identifiers, product names, seller references, current prices, and offer status from Catalog. It uses this information during item selection and submission. Catalog remains responsible for the master product and offer records, while Sales preserves the purchase details accepted for each submitted transaction.
+4.3 Inventory Management
+Sales sends the order ID, item IDs, selected offer IDs, and requested quantities to Inventory. Inventory returns reservation results, reservation references, expiry information, and release confirmations. The groups must agree on how each seller offer maps to the correct inventory record.
+Inventory alone performs stock reservation, release, deduction, and movement recording. Sales must wait for a definite result before advancing the order.
+4.4 Billing/Payment Management
+After successful reservation, Sales provides Billing with the order ID, customer or billing details, item quantities, accepted prices, and total product amount. Billing returns invoice references, payment status, verified amounts, and transaction results.
+The proposed demonstration requires full verified payment before fulfillment. Payment failure, late payment, or conflicting results must be reported clearly so Sales can preserve a consistent order state.
+4.5 Delivery/Shipment Management
+Sales sends the order reference, item details, recipient information, requested address, and fulfillment authorization to Delivery after payment and reservation checks succeed. Delivery returns shipment acceptance, shipment references, progress updates, delivery confirmation, and failure information.
+Sales records the overall order as Fulfilling after acceptance and Completed after verified delivery, provided payment remains confirmed. Delivery continues to own courier assignments, tracking details, and shipment records.
+4.6 Integration Summary
+Connected system
+Sales receives
+Sales provides
+Product/Catalog
+Offer details, seller reference, current price, and offer status
+Selected offer references for validation
+Inventory
+Reservation result, reference, expiry, and release confirmation
+Order items, quantities, reservation requests, and release requests
+Billing/Payment
+Invoice reference and verified payment results
+Order details, accepted prices, quantities, and total amount
+Delivery/Shipment
+Shipment acceptance, progress, delivery confirmation, and failures
+Fulfillment authorization, order items, recipient details, and requested address
+
+4.7 Shared Processing Requirements
+All groups must agree on identifier formats, field names, status values, timestamp conventions, and monetary precision. Responses must clearly indicate whether processing succeeded, failed, or remains pending. A timeout must not automatically be interpreted as success.
+Each system must recognize repeated requests and validate updates against the current state. When information is missing or contradictory, the order must remain unresolved until the responsible systems reconcile the result.
+5. PROPOSED END-TO-END WORKFLOW
+The process begins when a customer prepares a draft order. Sales validates the selected offers, quantities, and recipient details. If prices have changed, the customer reviews the revised total before submission. Sales then preserves the accepted details and requests reservation from Inventory.
+After Inventory confirms that all items are reserved, Sales submits the order to Billing. Billing processes payment and communicates the verified result. Sales confirms the order only when payment is successful and the reservation remains valid. It then sends a fulfillment request to Delivery.
+Delivery accepts the request and provides shipment updates. Sales displays the order’s progress and records relevant status changes. Once Delivery confirms successful delivery and payment remains verified, Sales marks the order Completed.
+When a transaction cannot proceed, Sales follows the applicable exception or cancellation process. This ensures that unresolved stock, payment, or delivery information does not produce an incorrect completed or cancelled order.
+6. MATTERS FOR SHARED AGREEMENT
+The design requires several decisions that affect more than one group. These must be confirmed before implementation because they determine how records are related and when processing may proceed.
+Decision
+Proposed starting point
+Database platform
+Evaluate Firebase and Supabase before selecting the shared platform.
+Customer ownership
+Sales maintains customer contact records or references an agreed shared entity.
+Seller coverage
+One seller per order for the initial demonstration.
+Offer-to-stock mapping
+Catalog and Inventory agree on the reference used for reservation.
+Reservation duration
+Inventory defines and communicates the expiry rule.
+Payment condition
+Full verified payment is required before fulfillment.
+Cancellation policy
+Allow cancellation before successful payment with coordinated stock release.
+Additional charges
+Agree on ownership and calculation before including shipping, taxes, or discounts.
+Stock deduction
+Inventory defines when reserved units become a completed stock movement.
+Shipment structure
+One shipment per order for the initial demonstration.
+Integration contracts
+Agree on field names, identifiers, statuses, request references, and response formats.
+
+This proposal establishes the Sales/Order Management group’s planned responsibilities and logical database structure. Once the shared decisions are confirmed, the group can finalize the database details and implement its assigned functions against the agreed integration requirements.

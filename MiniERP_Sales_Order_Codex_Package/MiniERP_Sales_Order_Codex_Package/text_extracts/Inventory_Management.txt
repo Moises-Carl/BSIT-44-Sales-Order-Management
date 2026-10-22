@@ -1,0 +1,934 @@
+                   Universidad De Manila
+
+
+
+
+                          MINI-ERP PROJECT
+
+                 INVENTORY MANAGEMENT SYSTEM
+
+System Scope, Database Design, Business Rules, and Integration Requirements
+
+
+
+
+                               Prepared by:
+                        Advincula, Klloyd Robert M.
+                            Francisco, Enrico Jr.
+                         Jarana, Keyshaun Guile M.
+                         Perez, Mark Rey Lands B.
+                            Perez, Ronnie Roi C.
+                            Oconer, Marc Rigor
+                            Sanao, Justine Rain
+
+
+
+
+                            Mr. Wlber, Sabado
+                                  Adviser
+                                                                              1
+
+
+
+
+                               October 2026
+                                                                              Page
+
+
+
+
+                  COLLEGE OF COMPUTING STUDIES
+                           Universidad De Manila
+
+
+1. PURPOSE AND SYSTEM SCOPE
+
+1.1 System Overview
+
+       The Mini-ERP project divides the operations of an online marketplace into five
+connected systems: Product/Catalog Management, Sales/Order Management, Inventory
+Management, Billing/Payment Management, and Delivery/Shipment Management. A
+single customer purchase passes through all five, so each system must know exactly which
+records it controls and which records it only reads from the others.
+
+       The Inventory Management System is the point of truth for stock. Whenever
+another system needs to know whether a seller can still sell a product, or needs units set
+aside for a customer, the request comes to Inventory. Inventory answers using its own
+counts and records every change it makes, so that each stock figure can be traced to the
+events that produced it.
+
+       This document describes the responsibilities, logical database structure, business
+rules, and integration requirements proposed by the Inventory Management group. The
+design is written without depending on a particular database platform, since the class has
+not yet chosen between Firebase and Supabase. Items that affect other groups are listed in
+Section 6 for joint confirmation.
+
+1.2 Purpose of the System
+
+       The main purpose of the Inventory Management System is to keep stock figures
+accurate while orders are being placed, paid for, and shipped. It does this by separating the
+units a seller physically holds from the units already promised to customers. The difference
+between the two is the quantity that can still be sold.
+
+       The system also protects the marketplace from overselling. When two customers
+attempt to buy the last available unit at the same moment, only one reservation may
+succeed. Reservation, release, and deduction are therefore handled only by Inventory and
+are processed one at a time for each stock record.
+                                                                                                2
+                                                                                                Page
+
+
+
+
+                           COLLEGE OF COMPUTING STUDIES
+                            Universidad De Manila
+
+
+          Finally, the system keeps a permanent movement log. Restocks, sales, returns, and
+corrections each create a log entry that records the quantity, the reason, and the resulting
+balance. This allows sellers and authorized staff to explain any stock figure and to detect
+errors without editing past records.
+
+1.3 Functional Scope
+
+          The system covers the full life of a stock unit from the time a seller adds it until it
+leaves with a shipment or returns to the shelf. It responds to reservation requests from Sales,
+adjusts reservations as orders progress, deducts stock when Delivery reports dispatch, and
+adds stock back when a returned package is received.
+
+          Sellers and authorized staff may record new stock and corrections. The other
+systems may read availability and reservation results, but they may not change stock
+figures directly. Table 1 summarizes the functions covered by the system.
+
+               Table 1. Functional Scope of the Inventory Management System
+
+ Function                      Description
+
+ Stock record setup            Create one stock record for each seller offer supplied by
+                               Product/Catalog Management.
+
+ Restocking                    Record units added by the seller and increase the quantity on
+                               hand.
+
+ Availability checking         Report the quantity that can still be sold for a given seller
+                               offer.
+
+ Stock reservation             Hold units for submitted order items so that other customers
+                               cannot buy them.
+
+ Reservation                   Remove the expiry from a reservation once Sales reports
+ confirmation                  verified payment.
+
+ Reservation release and       Return held units to available stock when an order is
+                                                                                                    3
+                                                                                                    Page
+
+
+
+
+ expiry                        cancelled, fails, or is left unpaid.
+
+
+                           COLLEGE OF COMPUTING STUDIES
+                         Universidad De Manila
+
+
+ Function                   Description
+
+ Stock deduction            Reduce the quantity on hand when Delivery reports that the
+                            items were dispatched.
+
+ Return receiving           Add units back when a returned package reaches the seller.
+
+ Stock adjustment           Record corrections for damaged, lost, or miscounted units
+                            with a required reason.
+
+ Movement history           Keep a permanent log of every change to the quantity on
+                            hand.
+
+ Low-stock monitoring       Identify stock records at or below their reorder level.
+
+
+
+1.4 Responsibility Boundaries
+
+       Inventory owns the stock records, reservations, and movement log. It does not store
+product descriptions, prices, order contents, payments, or shipment details. Where it needs
+to connect with those records, it keeps only the identifier used by the owning system. For
+example, a reservation stores the order item identifier from Sales, but the ordered quantity
+and price shown to the customer remain in the Sales record.
+
+       The same rule works in reverse. Sales may ask Inventory to reserve three units, but
+only Inventory decides whether the request succeeds and changes the stock figures.
+Delivery may report that a package left the seller, but only Inventory deducts the units and
+writes the movement entry. Table 2 shows how record ownership is divided among the five
+systems.
+
+                Table 2. Record Responsibilities of the Mini-ERP Systems
+
+ System                     Records it is responsible for
+
+ Product/Catalog            Categories, products, sellers, seller offers, selling prices, and
+ Management                 offer status
+                                                                                                4
+                                                                                                Page
+
+
+
+
+                        COLLEGE OF COMPUTING STUDIES
+                         Universidad De Manila
+
+
+ System                      Records it is responsible for
+
+ Sales/Order                 Customers, orders, order items, accepted prices, order totals,
+ Management                  and order status
+
+ Inventory Management        Stock records, quantities on hand and reserved, reservations,
+                             reorder levels, and movement history
+
+ Billing/Payment             Invoices, payment attempts, payment verification, and
+ Management                  refunds
+
+ Delivery/Shipment           Shipments, courier assignment, tracking, dispatch, and
+ Management                  delivery confirmation
+
+
+
+1.5 Proposed Initial Demonstration Scope
+
+       For the first demonstration, each seller offer has a single stock record and no
+separate warehouse locations. Stock is counted in whole units. A reservation request for an
+order is processed as one unit of work: either every item is reserved or none of them is, so
+the system never leaves a partial reservation behind.
+
+       Unpaid reservations are proposed to expire after 30 minutes. Stock is deducted at
+dispatch rather than at payment, so that a cancellation before dispatch only needs a release.
+Supplier purchasing, multiple warehouses, batch or expiry-date tracking, and stock
+transfers between sellers are outside the initial scope. These limits are proposals and must
+be confirmed with the affected groups.
+
+
+2. DATABASE DESIGN AND ENTITY RELATIONSHIPS
+
+2.1 Design Overview
+
+       The design separates three concerns that change at different rates. The Inventory
+entity holds the current balance for one seller offer. The Stock Reservation entity records
+                                                                                                5
+
+
+
+
+each temporary hold placed for an order item. The Stock Movement entity records every
+                                                                                                Page
+
+
+
+
+                        COLLEGE OF COMPUTING STUDIES
+                          Universidad De Manila
+
+
+permanent change to the balance. Keeping these apart allows the current figures to be read
+quickly while the full history stays intact.
+
+       Only two quantities are stored on the stock record: the quantity on hand and the
+quantity reserved. The quantity available for sale is always computed from them. Storing
+a third figure would create the possibility of the three numbers disagreeing.
+
+       Seller Offer and Order Item appear in the diagram as external entities.
+Product/Catalog Management owns Seller Offer, and Sales/Order Management owns
+Order Item. Inventory refers to them by identifier and does not duplicate their data.
+
+
+
+
+                                                                                             6
+                                                                                             Page
+
+
+
+
+                         COLLEGE OF COMPUTING STUDIES
+                         Universidad De Manila
+
+
+2.2 Entity-Relationship Diagram
+
+
+
+
+ Figure 1. Proposed Logical Entity-Relationship Diagram of the Inventory Management
+                                          System.
+
+       Figure 1 shows that each seller offer may have one stock record, and that each stock
+record may have many reservations and many movement entries. A reservation always
+belongs to a single order item, and an order item is held by at most one reservation.
+
+       The link between Stock Reservation and Stock Movement is optional on both sides.
+Restocks, adjustments, and returns produce movements without a reservation, while a
+                                                                                              7
+                                                                                              Page
+
+
+
+
+                        COLLEGE OF COMPUTING STUDIES
+                          Universidad De Manila
+
+
+reservation that is released or expires produces no movement at all. Only a fulfilled
+reservation creates a matching sale movement.
+
+2.3 Entity and Attribute Definitions
+
+        The tables below list the proposed attributes. Primary keys identify each record,
+foreign keys link records to one another, and unique keys prevent the same request or event
+from being stored twice. If a document database is selected, the same references and checks
+must be enforced by validation rules. Tables 3 to 7 describe each entity in turn.
+
+2.3.1 Inventory
+
+        The Inventory entity stores the current stock balance of one seller offer. It is created
+when a seller first enters stock for an offer and is updated whenever units are reserved,
+released, deducted, or added.
+
+        The reorder level is set by the seller. When the available quantity falls to or below
+this figure, the record is reported as low stock so that the seller can restock before the offer
+runs out.
+
+                         Table 3. Attributes of the Inventory Entity
+
+ Attribute                Key or Constraint            Description
+
+ inventory_id             PK                           Unique stock record identifier
+
+ seller_id                FK, required                 Seller who holds the stock
+
+ product_id               FK, required                 Product being stocked
+
+ quantity_on_hand         Required, integer ≥ 0        Units physically held by the seller
+
+ quantity_reserved        Required, integer ≥ 0,       Units held for orders that have not
+                          not greater than             been dispatched
+                          quantity_on_hand
+
+ reorder_level            Required, integer ≥ 0,       Available quantity at which the
+                                                                                                   8
+
+
+
+
+                          default 0                    record is reported as low stock
+                                                                                                   Page
+
+
+
+
+                         COLLEGE OF COMPUTING STUDIES
+                          Universidad De Manila
+
+
+ Attribute                Key or Constraint           Description
+
+ created_at               Required                    Date and time the record was
+                                                      created
+
+ updated_at               Required                    Date and time either quantity last
+                                                      changed
+
+
+       The pair seller_id and product_id must be unique and together reference one Seller
+Offer, so an offer cannot have two stock records.
+
+2.3.2 Stock Reservation
+
+       The Stock Reservation entity records units set aside for one order item. It begins as
+Active with an expiry time, becomes Confirmed when payment is verified, and ends as
+Fulfilled, Released, or Expired.
+
+       The request reference is supplied by Sales with each reservation request. If the same
+request arrives again because of a retry or a lost response, Inventory finds the existing
+reservation through this reference and returns the original result instead of reserving the
+units a second time. The order identifier is stored alongside the order item so that all holds
+for an order can be released together.
+
+                     Table 4. Attributes of the Stock Reservation Entity
+
+ Attribute                Key or Constraint           Description
+
+ reservation_id           PK                          Unique reservation identifier
+
+ request_reference        Unique, required            Reference of the Sales request that
+                                                      created the hold
+
+ inventory_id             FK, required                Stock record the units are taken
+                                                      from
+
+ order_item_id            FK, unique, required        Order item the hold is for
+                                                                                                 9
+                                                                                                 Page
+
+
+
+
+ order_id                 Required                    Order that contains the item
+
+
+                         COLLEGE OF COMPUTING STUDIES
+                         Universidad De Manila
+
+
+ Attribute                Key or Constraint          Description
+
+ quantity                 Required, integer > 0      Units held
+
+ reservation_status       Required                   Active, Confirmed, Fulfilled,
+                                                     Released, or Expired
+
+ expires_at               Required while Active      Time an unpaid hold is released
+                                                     automatically
+
+ release_reason           Required when Released Cause of the release, such as
+                                                     cancellation or failed payment
+
+ created_at               Required                   Date and time the hold was placed
+
+ updated_at               Required                   Date and time of the last status
+                                                     change
+
+
+2.3.3 Stock Movement
+
+       The Stock Movement entity is the permanent log of changes to the quantity on hand.
+Each entry states the type of change, the number of units, and the balance that resulted.
+Entries are never edited or deleted. A mistaken entry is corrected by recording a new
+adjustment.
+
+       Notifications from other systems, such as a dispatch report from Delivery, carry a
+source event reference. Storing that reference prevents a repeated notification from
+deducting the same stock twice.
+
+                      Table 5. Attributes of the Stock Movement Entity
+
+ Attribute                    Key or Constraint       Description
+
+ movement_id                  PK                      Unique movement identifier
+
+ inventory_id                 FK, required            Stock record that changed
+                                                                                            10
+                                                                                            Page
+
+
+
+
+                         COLLEGE OF COMPUTING STUDIES
+                         Universidad De Manila
+
+
+ Attribute                    Key or Constraint       Description
+
+ reservation_id               FK, optional            Reservation fulfilled by this
+                                                      movement, for sales only
+
+ movement_type                Required                Restock, Sale, Return, Adjustment
+                                                      In, or Adjustment Out
+
+ quantity                     Required, integer > 0   Units moved; the type determines
+                                                      whether stock increases or
+                                                      decreases
+
+ on_hand_after                Required, integer ≥ 0   Quantity on hand immediately after
+                                                      the movement
+
+ order_id                     Optional                Related order for sales and returns
+
+ source_event_reference       Unique when             Reference of the notification that
+                              supplied                caused the movement
+
+ performed_by                 Required                User or connected system
+                                                      responsible for the change
+
+ remarks                      Required for            Explanation of the change
+                              adjustments
+
+ created_at                   Required                Date and time of the movement
+
+
+2.3.4 Seller Offer — External Reference
+
+       Seller Offer represents one seller selling one product. Product/Catalog Management
+owns this entity. Inventory needs only its identifier and status to decide whether stock may
+be created or reserved. The attributes below follow the Catalog group’s current draft and
+must be aligned with its final design.
+                                                                                               11
+                                                                                               Page
+
+
+
+
+                        COLLEGE OF COMPUTING STUDIES
+                          Universidad De Manila
+
+
+                      Table 6. Referenced Attributes of Seller Offer
+
+ Referenced Attribute            Description
+
+ seller_id — PK, FK              Seller providing the offer
+
+ product_id — PK, FK             Product being offered
+
+ offer_status                    Whether the offer is active or inactive
+
+
+2.3.5 Order Item — External Reference
+
+       Order Item represents one seller offer within a customer order. Sales/Order
+Management owns this entity. Inventory uses its identifiers to link each reservation to the
+item it serves and reads the requested quantity from the reservation request.
+
+                       Table 7. Referenced Attributes of Order Item
+
+ Referenced Attribute            Description
+
+ order_item_id — PK              Unique order item identifier
+
+ order_id — FK                   Order that contains the item
+
+ offer_id — FK                   Seller offer selected by the customer
+
+ quantity                        Units requested by the customer
+
+
+
+2.4 Relationships and Cardinalities
+
+       Table 8 states the cardinality and participation of each relationship shown in Figure
+1.
+
+            Table 8. Relationships and Cardinalities of the Inventory Design
+
+ Relationship                    Cardinality and participation
+
+ Seller Offer–Inventory          A seller offer may have zero or one stock record. Every
+                                                                                               12
+
+
+
+
+                                 stock record belongs to exactly one seller offer.
+                                                                                               Page
+
+
+
+
+                          COLLEGE OF COMPUTING STUDIES
+                          Universidad De Manila
+
+
+ Relationship                     Cardinality and participation
+
+ Inventory–Stock                  A stock record may have zero or many reservations.
+ Reservation                      Every reservation draws from exactly one stock record.
+
+ Order Item–Stock                 An order item may be held by zero or one reservation.
+ Reservation                      Every reservation serves exactly one order item.
+
+ Inventory–Stock Movement         A stock record may have zero or many movements.
+                                  Every movement changes exactly one stock record.
+
+ Stock Reservation–Stock          A reservation produces zero or one movement. A
+ Movement                         movement is linked to zero or one reservation.
+
+
+
+3. BUSINESS RULES
+
+3.1 Stock Record Rules
+
+        A stock record may be created only for a seller offer that exists in Product/Catalog
+Management. Each offer has at most one stock record. Quantities are whole numbers and
+may never fall below zero, and the reserved quantity may never exceed the quantity on
+hand.
+
+        The quantity on hand may change only through a recorded movement, and the
+movement must be saved in the same database transaction as the new balance. Stock
+records that already have movement history may not be deleted, because reservations and
+log entries depend on them. These requirements are listed in Table 9.
+
+                           Table 9. Stock Record Business Rules
+
+ Rule           Requirement
+
+ BR-01          A stock record must reference an existing seller offer.
+                                                                                               13
+
+
+
+ BR-02          A seller offer may have only one stock record.
+                                                                                               Page
+
+
+
+
+                         COLLEGE OF COMPUTING STUDIES
+                          Universidad De Manila
+
+
+ Rule          Requirement
+
+ BR-03         Quantity on hand, quantity reserved, and reorder level must be whole
+               numbers of zero or more.
+
+ BR-04         Quantity reserved may not exceed quantity on hand.
+
+ BR-05         Every change to quantity on hand must create a stock movement in the
+               same transaction.
+
+ BR-06         Stock records with movement history may not be deleted.
+
+
+
+3.2 Available Stock Calculation
+
+        The quantity that customers may still buy is computed from the two stored figures
+and is never saved as a separate value. Low-stock and out-of-stock conditions are derived
+from the same result.
+
+             Available Quantity = Quantity on Hand − Quantity Reserved
+
+                    Low Stock: Available Quantity ≤ Reorder Level
+
+                           Out of Stock: Available Quantity = 0
+
+        For example, a seller holds 15 wireless mice with a reorder level of 5. Two pending
+orders hold 4 and 3 units, so the available quantity is 15 − 7 = 8. If a third order reserves 3
+more, the available quantity becomes 5 and the record is reported as low stock, even though
+15 units are still physically present.
+
+3.3 Reservation Rules
+
+        A reservation request from Sales lists every item of one order. Inventory checks all
+items before changing anything. If any item lacks enough available stock, or its seller offer
+is no longer active, the whole request is rejected and the response identifies the affected
+items. If every item passes, all reservations are created together.
+                                                                                                  14
+                                                                                                  Page
+
+
+
+
+                         COLLEGE OF COMPUTING STUDIES
+                            Universidad De Manila
+
+
+        Each stock record is locked while a reservation is being processed. This forces
+simultaneous requests for the same offer to be handled one after the other, which prevents
+two customers from receiving the same last unit. Table 10 lists the reservation rules.
+
+                             Table 10. Reservation Business Rules
+
+ Rule          Requirement
+
+ BR-07         A reservation request is accepted only if every listed item can be reserved.
+
+ BR-08         New reservations require an active seller offer, product, and seller.
+
+ BR-09         Reserving increases quantity reserved only; quantity on hand is
+               unchanged.
+
+ BR-10         A repeated request with the same request reference returns the original
+               result.
+
+ BR-11         An order item may have only one reservation.
+
+ BR-12         An Active reservation expires automatically if payment is not confirmed
+               before its expiry time.
+
+
+
+3.4 Reservation Status Handling
+
+        The reservation status shows where a hold stands. It is separate from the order status
+kept by Sales and the shipment status kept by Delivery, although Inventory changes it in
+response to their results. Table 11 defines each status and its permitted next status.
+
+                         Table 11. Reservation Statuses and Transitions
+
+ Status            Meaning                                     Normal next status
+
+ Active            Units are held and the reservation will     Confirmed, Released, or
+                   expire if unpaid.                           Expired
+
+ Confirmed         Payment is verified and the hold no         Fulfilled or Released
+                                                                                                 15
+
+
+
+
+                   longer expires.
+                                                                                                 Page
+
+
+
+
+                           COLLEGE OF COMPUTING STUDIES
+                              Universidad De Manila
+
+
+ Status                 Meaning                                Normal next status
+
+ Fulfilled              Items were dispatched and the units    None
+                        were deducted from stock.
+
+ Released               The hold was cancelled and the units   None
+                        returned to available stock.
+
+ Expired                The hold ended because payment was     None
+                        not confirmed in time.
+
+
+        Fulfilled, Released, and Expired are final. A Fulfilled reservation reduces both the
+quantity on hand and the quantity reserved and creates a Sale movement. A Released or
+Expired reservation reduces only the quantity reserved and creates no movement, since no
+unit left the seller.
+
+3.5 Stock Movement Rules
+
+        Each movement type moves stock in one direction. Restock, Return, and
+Adjustment In increase the quantity on hand. Sale and Adjustment Out decrease it.
+Adjustments require remarks, and an Adjustment Out may not reduce the quantity on hand
+below the quantity reserved, because those units are already promised to customers.
+
+        Movements are never changed after they are saved. If a restock was entered with
+the wrong quantity, the seller records an adjustment for the difference, leaving both entries
+visible in the history.
+
+3.6 Exception Handling
+
+        Table 12 lists the situations that fall outside the normal workflow and the response
+Inventory must apply in each case.
+                                                                                                16
+                                                                                                Page
+
+
+
+
+                             COLLEGE OF COMPUTING STUDIES
+                           Universidad De Manila
+
+
+                          Table 12. Exception Handling Responses
+
+ Situation                    Required response
+
+ Insufficient stock           Reject the whole reservation request and identify the items
+                              that are short.
+
+ Inactive seller offer        Reject new reservations; existing Confirmed reservations
+                              may still be fulfilled.
+
+ Simultaneous requests        Lock the stock record so that only one request succeeds.
+ for the last unit
+
+ Repeated reservation         Return the existing result found through the request
+ request                      reference.
+
+ Unpaid reservation past      Mark the reservation Expired and return the units to
+ expiry                       available stock.
+
+ Order cancelled before       Release all active and confirmed reservations for the order.
+ dispatch
+
+ Payment verified after       Do not revive the reservation; Sales must submit a new
+ expiry                       request, which succeeds only if stock is still available.
+
+ Repeated dispatch            Ignore the event if its source reference was already
+ notification                 recorded.
+
+ Returned package             Record a Return movement and add the units back to stock.
+ received
+
+ Physical count differs       Record an adjustment with remarks explaining the
+ from the record              difference.
+
+
+
+3.7 Access Control and Record Retention
+                                                                                               17
+
+
+
+          Sellers may view their own stock records, record restocks, set reorder levels, and
+                                                                                               Page
+
+
+
+
+enter adjustments for their own offers. Authorized staff may review all records and enter
+
+                          COLLEGE OF COMPUTING STUDIES
+                         Universidad De Manila
+
+
+adjustments when required. Connected systems may request reservations, confirmations,
+releases, and deductions only through the agreed integration functions. No user may edit
+the reserved quantity directly.
+
+       Stock records, reservations, and movements are kept for review. Ordinary user
+actions may not delete them, since Sales, Delivery, and staff may need them to investigate
+an order.
+
+
+4. INTEGRATION REQUIREMENTS
+
+4.1 Integration Approach
+
+       Inventory exchanges information with Product/Catalog, Sales/Order, and
+Delivery/Shipment Management. It does not exchange information with Billing/Payment
+Management directly: payment results reach Inventory through Sales, which coordinates
+the order. This keeps one system responsible for deciding when an order moves forward.
+
+       Every request must state the identifiers Inventory needs and a unique reference, and
+every response must clearly report success, failure, or a pending result. A request that times
+out must not be treated as successful. The sender should repeat it with the same reference
+so that Inventory can return the original outcome.
+
+4.2 Product/Catalog Management
+
+       Inventory receives seller offer identifiers and the status of each offer, product, and
+seller from Catalog. It uses them when a stock record is created and before any new
+reservation. In return, Inventory provides the available quantity and low-stock condition
+for each offer, which Catalog may display on product pages.
+
+4.3 Sales/Order Management
+
+       Sales sends reservation requests containing the order identifier, each order item
+identifier with its seller offer and quantity, and a request reference. Inventory replies with
+                                                                                                 18
+                                                                                                 Page
+
+
+
+
+                         COLLEGE OF COMPUTING STUDIES
+                          Universidad De Manila
+
+
+a single result for the order, the reservation identifiers, and the expiry time, or with the list
+of items that could not be reserved.
+
+        Sales also notifies Inventory when payment is verified, so that the reservations
+become Confirmed, and when an order is cancelled or payment fails, so that the
+reservations are released. The groups must agree on how the offer identifier used by Sales
+maps to the seller and product pair used by Inventory.
+
+4.4 Billing/Payment Management
+
+        No direct exchange is proposed. Billing reports payment results to Sales, and Sales
+forwards the effect on stock to Inventory. If the class later decides that Billing should notify
+Inventory directly, the same confirmation and release functions can be reused without
+changing the database design.
+
+4.5 Delivery/Shipment Management
+
+        Delivery may read the reservation status of an order to confirm that its stock is still
+held before preparing a shipment. When the package is dispatched, Delivery sends the
+order identifier, the order item identifiers, and a source event reference. Inventory then
+marks the reservations Fulfilled, deducts the units, and records Sale movements.
+
+        When a failed or returned delivery reaches the seller, Delivery sends a return
+notification with its own event reference. Inventory records Return movements and adds
+the units back to the quantity on hand.
+
+4.6 Integration Summary
+
+        Table 13 consolidates the information exchanged between Inventory and each
+connected system.
+                                                                                                    19
+                                                                                                    Page
+
+
+
+
+                         COLLEGE OF COMPUTING STUDIES
+                          Universidad De Manila
+
+
+           Table 13. Integration Summary of the Inventory Management System
+
+ Connected system         Inventory receives                  Inventory provides
+
+ Product/Catalog          Seller offer identifiers and the    Available quantity and low-
+                          status of offers, products, and     stock condition per offer
+                          sellers
+
+ Sales/Order              Reservation requests, payment Reservation results,
+                          confirmation, cancellation,         reservation identifiers, expiry
+                          and failed-payment notices          times, short-item lists, and
+                                                              release confirmations
+
+ Billing/Payment          None directly; payment results None directly
+                          arrive through Sales
+
+ Delivery/Shipment        Dispatch and return                 Reservation status per order
+                          notifications with event            and deduction confirmations
+                          references
+
+
+
+4.7 Shared Processing Requirements
+
+        All groups must use the same identifier formats, status names, and timestamp
+conventions. Inventory requires a unique reference on every request and event it receives,
+and it rejects updates that do not fit the current reservation status, such as a dispatch notice
+for a released reservation.
+
+        When a result is missing or contradictory, the affected reservation stays in its
+current status until the responsible systems resolve the difference. Inventory never guesses
+a result in order to move a reservation forward.
+                                                                                                   20
+                                                                                                   Page
+
+
+
+
+                         COLLEGE OF COMPUTING STUDIES
+                            Universidad De Manila
+
+
+5. PROPOSED END-TO-END WORKFLOW
+
+       The process begins when a seller records stock for an active seller offer. Inventory
+creates the stock record and logs a Restock movement. From that point, the offer’s
+available quantity can be shown to customers.
+
+       When a customer submits an order, Sales sends a reservation request. Inventory
+checks every item, locks the affected stock records, and either reserves all items with a 30-
+minute expiry or rejects the request with the list of short items. The quantity on hand does
+not change at this stage.
+
+       After Billing verifies payment, Sales notifies Inventory and the reservations
+become Confirmed. If payment fails or the customer cancels, Sales requests a release. If
+no notice arrives before the expiry time, Inventory expires the reservations on its own. In
+each of these cases, the units return to available stock.
+
+       When Delivery dispatches the package, Inventory marks the reservations Fulfilled,
+reduces the quantity on hand and the quantity reserved, and records Sale movements. If the
+package later returns to the seller, Inventory records Return movements. Throughout the
+process, every change to the physical count leaves a permanent entry in the movement log.
+
+
+
+
+                                                                                                21
+                                                                                                Page
+
+
+
+
+                            COLLEGE OF COMPUTING STUDIES
+
