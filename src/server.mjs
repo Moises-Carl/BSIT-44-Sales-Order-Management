@@ -163,7 +163,7 @@ if(process.argv[1]&&fileURLToPath(import.meta.url)===process.argv[1]) {
   const {server}=application(db);
   const port=Number(process.env.PORT||3100),host=process.env.HOST||'127.0.0.1';
   if(demo&&!['127.0.0.1','localhost','::1'].includes(host)) throw new Error('Demo mode must bind to loopback.');
-  server.listen(port,host,()=>console.log(`MiniERP ${demo?'DEMO — simulated integrations':'LIVE'}: http://${host}:${port}`));
+  server.listen(port,host,()=>console.log(`BSIT-44 Sales-Order Management ${demo?'DEMO — simulated integrations':'LIVE'}: http://${host}:${port}`));
   const stop=()=>server.close(async()=>{await db.close();process.exit(0);});
   process.on('SIGINT',stop);process.on('SIGTERM',stop);
 }

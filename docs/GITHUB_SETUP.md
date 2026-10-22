@@ -1,14 +1,14 @@
 # Share the project with your group
 
-Suggested GitHub repository name: `CampusERP-Sales-Order`.
+Suggested GitHub repository name: `BSIT-44-Sales-Order-Management`.
 
 ## Upload this prepared Git repository
 
-1. On GitHub, create a new repository named `CampusERP-Sales-Order`. Choose **Private** if access should be limited to your group. Leave the README, .gitignore, and license options unchecked because this local project already has its first commit.
+1. On GitHub, create a new repository named `BSIT-44-Sales-Order-Management`. Choose **Private** if access should be limited to your group. Leave the README, .gitignore, and license options unchecked because this local project already has its first commit.
 2. Copy the new repository’s HTTPS URL. In a terminal opened in this MiniERP folder, replace `YOUR_USERNAME` below with the GitHub account that owns it:
 
 ```powershell
-git remote add origin https://github.com/YOUR_USERNAME/CampusERP-Sales-Order.git
+git remote add origin https://github.com/YOUR_USERNAME/BSIT-44-Sales-Order-Management.git
 git push -u origin main
 ```
 
@@ -18,15 +18,15 @@ If prompted, sign in using your Git credential manager or browser. Do not paste 
 
 ## Alternative: upload through GitHub’s website
 
-The prepared `data/CampusERP-Sales-Order-GitHub.zip` contains the committed project files only. Extract it into a new folder first, then upload the extracted files using GitHub’s **Add file → Upload files**. Upload the contents as source files rather than uploading only the ZIP. The Git push method above preserves the prepared commit and includes hidden configuration files reliably.
+The prepared `data/BSIT-44-Sales-Order-Management-GitHub.zip` contains the committed project files only. Extract it into a new folder first, then upload the extracted files using GitHub’s **Add file → Upload files**. Upload the contents as source files rather than uploading only the ZIP. The Git push method above preserves the prepared commit and includes hidden configuration files reliably.
 
 ## Groupmate setup
 
 Install Git and Node.js 22.14 or newer, then:
 
 ```powershell
-git clone https://github.com/YOUR_USERNAME/CampusERP-Sales-Order.git
-cd CampusERP-Sales-Order
+git clone https://github.com/YOUR_USERNAME/BSIT-44-Sales-Order-Management.git
+cd BSIT-44-Sales-Order-Management
 npm.cmd ci --ignore-scripts
 npm.cmd run demo
 ```

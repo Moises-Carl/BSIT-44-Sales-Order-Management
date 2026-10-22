@@ -1,4 +1,4 @@
-# CampusERP — Sales / Order Management
+# BSIT-44 Sales-Order Management
 
 A local university Sales module with a responsive browser interface, authenticated staff/customer accounts, locked submitted purchases, exact PHP product totals, status history, and durable integration requests.
 

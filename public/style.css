@@ -119,3 +119,6 @@ thead th{background:#e0ebd9;color:#294b32;border-top:1px solid #c7d8bf;border-bo
 .overview-page .reporting-period,.overview-page .scope-note{font-size:12px;color:#69786c;line-height:1.6}
 @media(max-width:1100px){.overview-page .overview-charts{grid-template-columns:1fr}.overview-page .overview-charts>.panel{min-height:0}}
 @media(max-width:780px){.overview-page .panel>.panel-head{padding:20px 20px 0}.overview-page .panel-body{padding:18px 20px 20px}.overview-page .overview-stats{gap:12px}.overview-page .overview-stats .stat{padding:16px;min-height:132px}.overview-page .trend-chart:not(.long-trend) text{font-size:11px}.overview-page .overview-charts{gap:20px}.overview-page .overview-filters{gap:14px}}
+
+/* BSIT-44 application identity */
+.brand .brand-copy{min-width:0;line-height:1.25}.brand .brand-copy small{font-size:10px;letter-spacing:.3px;line-height:1.5;text-transform:none;margin-top:4px}.topbar>span{min-width:0;overflow-wrap:anywhere}.app-footer>span{overflow-wrap:anywhere}
