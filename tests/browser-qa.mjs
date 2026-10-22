@@ -24,17 +24,17 @@ try{
  await new Promise((r,j)=>{socket.addEventListener('open',r,{once:true});socket.addEventListener('error',j,{once:true});});
  let next=0;const pending=new Map();
  socket.addEventListener('message',e=>{const m=JSON.parse(e.data);if(m.id){const p=pending.get(m.id);if(p){pending.delete(m.id);m.error?p.reject(new Error(m.error.message)):p.resolve(m.result);}}if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails.text+': '+m.params.exceptionDetails.exception?.description);});
- const cdp=(method,params={})=>new Promise((resolve,reject)=>{const id=++next;pending.set(id,{resolve,reject});socket.send(JSON.stringify({id,method,params}));});
+ const cdp=(method,params={})=>new Promise((resolve,reject)=>{const id=++next;const timer=setTimeout(()=>{pending.delete(id);reject(new Error('CDP timeout: '+method));},20000);timer.unref();const done=resolve;resolve=value=>{clearTimeout(timer);done(value);};pending.set(id,{resolve,reject});socket.send(JSON.stringify({id,method,params}));});
  const evaluate=async expression=>{const r=await cdp('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw new Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result.value;};
  const wait=expression=>evaluate(`new Promise((resolve,reject)=>{let n=0;const check=()=>{try{if(${expression})return resolve(true);}catch{}if(++n>150)return reject(new Error('UI timed out: '+${JSON.stringify(expression)}));setTimeout(check,50);};check();})`);
   const click=async selector=>{const point=await evaluate(`(()=>{const el=[...document.querySelectorAll(${JSON.stringify(selector)})].find(e=>e.getBoundingClientRect().width&&e.getBoundingClientRect().height);if(!el)throw new Error('No visible control: '+${JSON.stringify(selector)});el.scrollIntoView({block:'center'});const r=el.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);await cdp('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',clickCount:1});await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});};
  const fill=async(selector,value)=>evaluate(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});el.value=${JSON.stringify(value)};el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));})()`);
- const screenshot=async name=>{await evaluate("document.querySelector('#notice').classList.remove('show');window.scrollTo(0,0)");await sleep(100);const img=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:true});await writeFile(`data/screenshots/ui-${name}.png`,Buffer.from(img.data,'base64'));};
+ const screenshot=async name=>{await evaluate("document.querySelector('#notice').classList.remove('show');window.scrollTo(0,0)");await sleep(100);const img=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:true});await writeFile(`docs/ui-review/2026-10-22/ui-regression-${name}.png`,Buffer.from(img.data,'base64'));await writeFile(`docs/ui-review/2026-10-22/ui-regression-${name}.json`,JSON.stringify(await evaluate('({width:innerWidth,height:innerHeight,role:document.querySelector(".account small")?.textContent||"Signed out",page:location.hash})'),null,2));};
  const viewport=async(width,height=1000)=>{await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<781});await sleep(100);};
  const noOverflow=async name=>assert.ok(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'),`${name} must not overflow`);
  const nav=async(hash,condition)=>{await evaluate(`location.hash=${JSON.stringify(hash)}`);await wait(condition);};
 
- await mkdir('data/screenshots',{recursive:true});await cdp('Runtime.enable');await cdp('Page.enable');await viewport(1440);
+ await mkdir('docs/ui-review/2026-10-22',{recursive:true});await cdp('Runtime.enable');await cdp('Page.enable');await viewport(1440);
  await cdp('Page.navigate',{url:base});await wait("document.querySelector('#login-form')");
  await screenshot('login-desktop');await noOverflow('Desktop login');
  await click('#login-form button[type="submit"]');assert.match(await evaluate("document.querySelector('[data-error-for=\"email\"]').textContent"),/valid email/);
@@ -46,6 +46,7 @@ try{
  await click('[data-email="admin@example.test"]');assert.ok(await evaluate("document.querySelector('[data-email=\"alex@example.test\"]').disabled"));
  await wait("document.querySelector('main h1')?.textContent==='Sales & orders'");assert.equal(await evaluate('window.__logins'),1);
  await screenshot('staff-empty');
+ await click('[data-status="pending_stock"]');await wait("document.querySelector('.empty p')?.textContent.includes('No orders pending stock.')");await screenshot('staff-empty-pending-stock');await click('[data-action="reset-filters"]');await wait("!document.querySelector('.active-filters')");
  await click('.sidebar-foot [data-action="logout"]');await wait("document.querySelector('#login-form')");await evaluate("document.querySelector('.demo-accounts').open=true");await click('[data-email="alex@example.test"]');await wait("document.querySelector('main h1')?.textContent==='My orders'");assert.match(await evaluate("document.querySelector('.empty p').textContent"),/Create your first order/);await screenshot('customer-empty');
  await click('.sidebar-foot [data-action="logout"]');await wait("document.querySelector('#login-form')");await evaluate("document.querySelector('.demo-accounts').open=true");await click('[data-email="admin@example.test"]');await wait("document.querySelector('main h1')?.textContent==='Sales & orders'");
  await nav('new',"document.querySelector('.stages .current')?.textContent.includes('Select items')");
@@ -67,9 +68,10 @@ try{
  assert.equal(await evaluate("document.querySelectorAll('.order-progress .done').length"),1);
  await screenshot('pending-stock-desktop');
  for(const step of ['inventory:reserve','billing:invoice','billing:verify','inventory:confirm','delivery:accept','delivery:verify_delivery']){
-  await nav('operations',`document.querySelector('[data-ref="sales:1:${step}"]')`);
-  await click(`[data-ref="sales:1:${step}"]`);await wait(`!document.querySelector('[data-ref="sales:1:${step}"]') && document.querySelector('main h1')?.textContent==='Demo operations'`);
+  await nav('operations',"document.querySelector('#processing-outcome')");
+  await screenshot('staff-demo-before-'+step.replace(':','-'));await fill('#processing-outcome','successful');await click('#outcome-form button[type="submit"]');await wait("document.querySelector('#operation-order') && document.querySelector('main h1')?.textContent==='Processing outcome' && !document.querySelector('#outcome-form button[aria-busy]')");
  }
+ await screenshot('staff-demo-completed');await viewport(390,844);await noOverflow('Guided demo mobile');await screenshot('staff-demo-mobile');await viewport(1440);
  await nav('order/1',"document.querySelector('.page-head .badge')?.textContent==='Completed'");assert.equal(await evaluate("document.querySelectorAll('.timeline li').length"),6);assert.equal(await evaluate("document.querySelectorAll('.order-progress .done').length"),5);
  await screenshot('detail-desktop');await viewport(390,844);await noOverflow('Mobile detail');await screenshot('detail-mobile');await viewport(1440);
  // All populated demonstration records are created by Sales and isolated service simulators.
@@ -88,8 +90,16 @@ try{
  await viewport(1440);await click('[data-action="status-filter"][data-status="draft"]');await wait("document.querySelector('.active-filters')?.textContent.includes('Draft')");assert.ok(await evaluate("[...document.querySelectorAll('tbody .badge')].every(e=>e.textContent==='Draft')"));
  await click('[data-action="reset-filters"]');await wait("!document.querySelector('.active-filters') && document.querySelector('#filter-form')");
  await fill('[name="search"]','NO-ORDER-MATCHES-THIS');await click('#filter-form button[type="submit"]');await wait("document.querySelector('.empty h3')?.textContent==='No matching orders'");await screenshot('no-results-desktop');await click('[data-action="reset-filters"]');await wait("document.querySelector('tbody')");
+
+ // Failure simulation on its own order, via rendered controls.
+ await nav('operations',"document.querySelector('#operation-order')");await fill('#operation-search','Alex');assert.ok(await evaluate("[...document.querySelectorAll('#operation-order option')].filter(x=>!x.hidden).every(x=>x.textContent.includes('Alex'))"));await fill('#operation-order',String(pendingId));await wait("document.querySelector('#processing-outcome')");
+ await fill('#processing-outcome','unsuccessful');await screenshot('staff-demo-problem-options');
+ await fill('#outcome-form [name="reason"]','Stock is unavailable for this test');await click('#outcome-form button[type="submit"]');await wait("document.querySelector('#operation-order') && document.querySelector('main').textContent.includes('Stock was unavailable')");
+ assert.match(await evaluate("document.querySelector('main').textContent"),/Rejected/);await screenshot('staff-demo-stock-rejected');await click('a[href="#order/'+pendingId+'"]');await wait("document.querySelector('.next-step-banner')?.textContent.includes('needs attention')");await click('a[href="#operations"]');await wait("document.querySelector('#operation-order')");assert.equal(await evaluate("document.querySelector('#operation-order').value"),String(pendingId));
+ await nav('orders',"document.querySelector('#filter-form')");await click('[data-status="attention"]');await wait("document.querySelector('.active-filters')?.textContent.includes('Attention')");assert.ok(await evaluate("document.querySelector('tbody')"));await screenshot('staff-attention-filter');
+ await click('[data-action="reset-filters"]');await wait("!document.querySelector('.active-filters')");
  await nav(`edit/${draftId}`,"document.querySelector('#seller-select')");await click('.stage-navigation [data-action="stage-next"]');assert.equal(await evaluate("document.querySelector('[name=\"recipient_name\"]').value"),'Alex Santos');
- await nav(`order/${cancelId}`,"document.querySelector('.page-head .badge')?.textContent==='Cancellation pending'");await screenshot('cancellation-pending-desktop');await viewport(390,844);await noOverflow('Mobile cancellation');await screenshot('cancellation-pending-mobile');await viewport(1440);assert.equal(await evaluate("document.querySelectorAll('.order-progress .done').length"),0);
+ await nav(`order/${cancelId}`,"document.querySelector('.page-head .badge')?.textContent==='Cancellation pending'");await screenshot('cancellation-pending-desktop');await viewport(390,844);await noOverflow('Mobile cancellation');await screenshot('cancellation-pending-mobile');await viewport(1440);assert.equal(await evaluate("document.querySelectorAll('.order-progress .done').length"),1);
  await nav(`order/${draftId}`,"document.querySelector('[data-action=\"cancel\"]')");await click('[data-action="cancel"]');await click('#cancel-form button[type="submit"]');assert.match(await evaluate("document.querySelector('[data-error-for=\"reason\"]').textContent"),/cancellation reason/);await fill('[name="reason"]','Testing draft cancellation');await click('#cancel-form button[type="submit"]');await wait("document.querySelector('.page-head .badge')?.textContent==='Cancelled'");
 
  await nav('order/'+confirmedId,"document.querySelector('.page-head .badge')?.textContent==='Confirmed'");assert.match(await evaluate("document.querySelector('.facts').textContent"),/no automatic expiry/);assert.equal(await evaluate("document.querySelectorAll('.order-progress .done').length"),3);await screenshot('confirmed-no-expiry');
@@ -101,6 +111,10 @@ try{
  assert.ok(await evaluate("!document.querySelector('.sidebar a[href=\"#operations\"]')"));
  const ownRows=await evaluate("window.__fetch('/api/orders').then(r=>r.json())");assert.ok(ownRows.every(o=>o.customer_id===1));assert.ok(!ownRows.some(o=>o.order_id===jamieId));
  assert.equal(await evaluate("window.__fetch('/api/operations/requests').then(r=>r.status)"),403);
+
+ const customerCancelId=await create();await submit(customerCancelId);
+ await nav('order/'+customerCancelId,"document.querySelector('[data-action=\"cancel\"]')");await click('[data-action="cancel"]');await fill('[name="reason"]','Customer requests cancellation of test order');await click('#cancel-form button[type="submit"]');await wait("document.querySelector('.page-head .badge')?.textContent==='Cancelled'");await screenshot('customer-cancellation-request');
+ await nav('orders',"document.querySelector('#filter-form')");
  await screenshot('customer-orders-desktop');await viewport(390,844);await noOverflow('Customer mobile orders');await screenshot('customer-orders-mobile');
  await nav('new',"document.querySelector('#seller-select')");await click('[data-action="add-item"][data-id="1"]');await click('.stage-navigation [data-action="stage-next"]');await wait("document.querySelector('#draft-form')");assert.ok(await evaluate("!document.querySelector('[name=\"customer_id\"]')"));await noOverflow('Customer mobile draft');await screenshot('customer-recipient-mobile');
  await evaluate("location.hash='order/1'");await wait("document.querySelector('[data-action=\"discard-draft\"]')");await click('[data-action="discard-draft"]');await wait("document.querySelector('.page-head .badge')?.textContent==='Completed'");assert.ok(await evaluate("!document.querySelector('[data-action=\"cancel\"]')"));

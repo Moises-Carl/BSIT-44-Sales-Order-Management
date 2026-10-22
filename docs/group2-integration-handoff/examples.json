@@ -1,0 +1,141 @@
+{
+  "notice": "Fictional illustrations, not live transactions. Replace all IDs/references and use a future expires_at generated at execution. Send each callback only after its exact request exists. Fields shown are not a standalone shared JSON schema.",
+  "reservation_deadline_instruction": "Generate expires_at as Date.now() + agreed_duration_ms when processing a real request. The illustrative deadline below was generated during document preparation.",
+  "reserve_request": {
+    "request_reference": "sales:42:inventory:reserve",
+    "order_id": 42,
+    "customer_id": 7,
+    "seller_id": 3,
+    "payment_method": "gcash",
+    "collection_due": null,
+    "invoice_reference": null,
+    "tracking_reference": null,
+    "shipment": "none",
+    "items": [
+      {
+        "order_item_id": 101,
+        "offer_id": 9,
+        "seller_id": 3,
+        "product_name_at_order": "Example notebook",
+        "quantity": 2,
+        "unit_price_at_order": "89.50"
+      }
+    ],
+    "product_total": "179.00",
+    "currency": "PHP",
+    "recipient": {
+      "name": "Fictional Test Customer",
+      "contact": "TEST-CONTACT",
+      "address": "Fictional test delivery address"
+    },
+    "reservation": null
+  },
+  "reserve_result": {
+    "event_reference": "inventory-EXAMPLE-reserve",
+    "request_reference": "sales:42:inventory:reserve",
+    "order_id": 42,
+    "status": "reserved",
+    "expires_at": 1792694583455,
+    "reservations": [
+      {
+        "order_item_id": 101,
+        "offer_id": 9,
+        "quantity": 2,
+        "reservation_id": "INV-EXAMPLE-101"
+      }
+    ]
+  },
+  "invoice_result": {
+    "event_reference": "billing-EXAMPLE-invoice",
+    "request_reference": "sales:42:billing:invoice",
+    "order_id": 42,
+    "status": "created",
+    "invoice_reference": "BILL-EXAMPLE-42",
+    "amount": "179.00",
+    "currency": "PHP"
+  },
+  "payment_result": {
+    "event_reference": "billing-EXAMPLE-verify",
+    "request_reference": "sales:42:billing:verify",
+    "order_id": 42,
+    "status": "verified",
+    "invoice_reference": "BILL-EXAMPLE-42",
+    "transaction_reference": "TX-EXAMPLE-42",
+    "amount": "179.00",
+    "currency": "PHP"
+  },
+  "confirmation_result": {
+    "event_reference": "inventory-EXAMPLE-confirm",
+    "request_reference": "sales:42:inventory:confirm",
+    "order_id": 42,
+    "status": "confirmed",
+    "expires_at": null,
+    "reservations": [
+      {
+        "order_item_id": 101,
+        "offer_id": 9,
+        "quantity": 2,
+        "reservation_id": "INV-EXAMPLE-101"
+      }
+    ]
+  },
+  "acceptance_result": {
+    "event_reference": "delivery-EXAMPLE-accept",
+    "request_reference": "sales:42:delivery:accept",
+    "order_id": 42,
+    "status": "accepted",
+    "tracking_reference": "SHIP-EXAMPLE-42",
+    "order_item_ids": [
+      101
+    ]
+  },
+  "delivery_result": {
+    "event_reference": "delivery-EXAMPLE-verify_delivery",
+    "request_reference": "sales:42:delivery:verify_delivery",
+    "order_id": 42,
+    "status": "delivered",
+    "tracking_reference": "SHIP-EXAMPLE-42",
+    "proof_reference": "POD-EXAMPLE-42"
+  },
+  "unpaid_cancel_result": {
+    "event_reference": "billing-EXAMPLE-cancel",
+    "request_reference": "sales:42:billing:cancel",
+    "order_id": 42,
+    "status": "cancelled_unpaid"
+  },
+  "release_result": {
+    "event_reference": "inventory-EXAMPLE-release",
+    "request_reference": "sales:42:inventory:release",
+    "order_id": 42,
+    "status": "released",
+    "no_active_reservations": true
+  },
+  "cod_request_extension": {
+    "payment_method": "cod",
+    "collection_due": "179.00"
+  },
+  "redelivery_request_extension": {
+    "request_reference": "sales:42:delivery:verify_delivery:attempt-8",
+    "redelivery": true,
+    "scheduled_at": "2026-10-23T18:13:03.455Z"
+  },
+  "inventory_lifecycle": {
+    "schema_version": 1,
+    "event_type": "reservation.lifecycle",
+    "event_reference": "INV-EXAMPLE-42-V1",
+    "request_reference": "sales:42:inventory:reserve",
+    "order_id": 42,
+    "version": 1,
+    "status": "fulfilled",
+    "occurred_at": 1792692783457,
+    "fulfillment_reference": "MOVEMENT-EXAMPLE-42",
+    "reservations": [
+      {
+        "order_item_id": 101,
+        "offer_id": 9,
+        "quantity": 2,
+        "reservation_id": "INV-EXAMPLE-101"
+      }
+    ]
+  }
+}

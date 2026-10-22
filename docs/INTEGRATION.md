@@ -104,3 +104,28 @@ Staff only: `GET /api/operations/requests`, `POST /api/operations/dispatch` with
 ## Implemented Inventory lifecycle updates
 
 Sales now supports non-expiring confirmed holds, order-independent reservation/item matching, canonical event deduplication, and the signed versioned `POST /api/events/inventory/lifecycle` receiver. See [INVENTORY_LIFECYCLE.md](INVENTORY_LIFECYCLE.md) for the exact envelope, sequencing, validation, cancellation guarantees, and remaining external agreements. Later lifecycle notifications use that endpoint rather than overwriting an original request’s terminal result.
+## Workflow outcome follow-up (22 October 2026)
+
+The current UI and verification are documented in [workflow fixes](ui-review/2026-10-22/WORKFLOW_FIXES.md). Existing MySQL databases need `npm.cmd run db:migrate-workflow` for the additive persistent notification table before starting this version.
+
+Sales now accepts a signed Delivery `failed` result for `accept` or `verify_delivery`. Acceptance failures retain the exact request item links; verification failures must match the existing tracking reference. They set the independent shipment fact to failed, preserve verified payments and prior facts, block later automatic processing, and notify the customer. They do not change the order to cancelled or completed. This extension is locally implemented and simulated; agreement/testing with the Delivery owner is still required before live use.
+
+Cancellation immediately blocks ordinary reservation, billing, confirmation and delivery requests while retaining Billing cancellation and Inventory release work. Definitive failed payment has no automatic retry and coordinates Inventory release. Late positive payment/reservation evidence remains a reconciliation concern, never authority to restart fulfillment. Unknown/time-out results remain pending.
+
+Staff outcome choices in demo mode use simulator adapters. Integrated mode exposes only eligible cancellation and queries/dispatches verified service results; it cannot manufacture a successful or unsuccessful external result. Diagnostic requests, payloads, attempts, retries and events remain in backend storage and are absent from rendered workflow screens.
+
+## Payment method / COD contract extension
+
+Orders snapshot a payment_method of gcash, bank_transfer, cod, or legacy prepaid. Requests include collection_due for COD, invoice_reference, tracking_reference and shipment facts. COD invoice creation prepares the collection arrangement; Inventory then confirms stock without an advance paid result. Delivery may accept only after valid confirmed stock and that Billing arrangement. Verified delivery requests a separate Billing verify operation for COD collection. Only its exact invoice/amount/currency/transaction verification can complete the delivered COD order. Delivery proof alone never means paid. Inventory may report fulfillment for an accepted COD shipment without marking payment verified.
+
+Live COD is disabled by default (ENABLE_COD=false). Inventory, Billing and Delivery must agree and implement this extension before enabling it. Existing MySQL installations need npm.cmd run db:migrate-payment. See [payment method notes](ui-review/2026-10-22/PAYMENT_METHODS.md) for verified demo behavior and remaining integration limits.
+
+### Redelivery attempts (supersedes terminal delivery-failure guidance above)
+
+Delivery `failed` closes only that request/attempt. The shipment fact remains failed, the order remains confirmed/fulfilling, and no payment is cleared or collected. Sales records an agreed future retry time and enqueues a distinct request reference suffixed `:attempt-{update_id}` with `redelivery: true` and ISO UTC `scheduled_at`. Before-acceptance failures retry accept; after-acceptance failures retry verify_delivery against the existing tracking reference. A delivery callback or dispatch before the schedule is rejected. Replaying an old terminal request cannot complete a retry. The existing signed adapter transports each unique request; Delivery must agree/test this contract before live use. Sales does not manufacture delivery proof, cash collection, or refunds.
+
+## Refunds and returns: evidence boundary
+
+Sales tracks cancellation acceptance and fulfillment stop independently of refund/return resolution. Refund receipts are immutable manual records of external Billing/payment activity, not money-transfer requests. Invoice and transaction facts remain unchanged. Refund totals use exact centavo arithmetic; amounts cannot exceed the remaining verified payment and transaction references cannot repeat. An accepted cancellation that later receives verified payment remains cancelled and gains a refund obligation.
+
+Delivery owns return handover and transport; seller/Inventory owns receipt and condition. Sales does not increment external stock balances. The demo writes a unique per-order restoration ledger entry only after saleable receipt; live mode waits for an Inventory restoration reference and explicit evidence confirmation. Damaged/missing goods do not restore stock. New records use additive tables sales_resolution, sales_resolution_history, sales_refund_record and sales_return_stock. There is currently no agreed automated refund or reverse-logistics API; live money movement and Inventory balance updates remain unverified.

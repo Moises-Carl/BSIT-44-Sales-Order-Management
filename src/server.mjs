@@ -1,9 +1,14 @@
+import {salesOverview} from './overview.mjs';
+import {resolution,resolutionActions,changeResolution} from './resolution.mjs';
+import {paymentMethods} from './payment.mjs';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { connect } from './db.mjs';
+import {processingEnd} from '../public/ui.mjs';
+import { processingStage } from './processing.mjs';
 import { Accounts } from './accounts.mjs';
 import { Sales } from './sales.mjs';
 import { Integrations, authentic } from './integrations.mjs';
@@ -46,7 +51,7 @@ export function application(db) {
         insist(!origin||origin===`http${req.socket.encrypted?'s':''}://${req.headers.host}`||origin===process.env.PUBLIC_ORIGIN,'Request origin rejected.',403);
         insist(req.headers['content-type']?.startsWith('application/json'),'JSON content type required.',415);
       }
-      if(path==='/api/config'&&req.method==='GET') return send(200,{demo:db.demo,currency:'PHP'});
+      if(path==='/api/config'&&req.method==='GET') return send(200,{demo:db.demo,currency:'PHP',payment_methods:paymentMethods(db.demo)});
       if(['/api/login','/api/register'].includes(path)&&req.method==='POST') {
         const key=req.socket.remoteAddress, attempt=loginAttempts.get(key);
         const record=attempt&&attempt.until>Date.now()?attempt:{count:0,until:Date.now()+900000};
@@ -66,8 +71,56 @@ export function application(db) {
       const [user]=await db.query('SELECT u.user_id,u.email,u.role,u.customer_id,s.csrf FROM sales_session s JOIN sales_user u ON u.user_id=s.user_id WHERE s.token=? AND s.expires>?',[token,Date.now()]);
       insist(user,'Please sign in.',401);
       if(req.method!=='GET') insist(req.headers['x-csrf-token']===user.csrf,'Session verification failed. Refresh and try again.',403);
+      const orderAccess=path.match(/^\/api\/orders\/(\d+)(?:\/|$)/);
+      if(user.role!=='customer'&&orderAccess){
+        const [record]=await db.query('SELECT order_status FROM sales_order WHERE order_id=?',[Number(orderAccess[1])]);
+        insist(record&&record.order_status!=='draft','Order not found.',404);
+      }
+      if(!['staff','customer'].includes(user.role)&&req.method!=='GET'&&path!=='/api/logout'&&!path.endsWith('/resolution'))insist(false,'This role can update only its resolution actions.',403);
       if(path==='/api/me'&&req.method==='GET') return send(200,{user,csrf:user.csrf});
       if(path==='/api/logout'&&req.method==='POST') {await db.tx(q=>q('DELETE FROM sales_session WHERE token=?',[token]));res.setHeader('Set-Cookie','sales_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');return send(200,{ok:true});}
+      if(path==='/api/notifications'&&req.method==='GET')return send(200,await sales.notifications(user));
+      const notificationMatch=path.match(/^\/api\/notifications\/(\d+)\/read$/);
+      if(notificationMatch&&req.method==='POST')return send(200,await sales.readNotification(Number(notificationMatch[1]),user));
+      if(path==='/api/sales-overview'&&req.method==='GET')return send(200,await salesOverview(db,user,Object.fromEntries(url.searchParams)));
+      if(path==='/api/sales-inbox'&&req.method==='GET')return send(200,await sales.inbox(user));
+      const followupMatch=path.match(/^\/api\/orders\/(\d+)\/(reschedule|order-again)$/);
+      if(followupMatch?.[2]==='order-again')insist(user.role==='customer','New drafts belong to customer accounts.',403);
+      if(followupMatch&&req.method==='POST')return send(201,await (followupMatch[2]==='reschedule'?sales.reschedule(Number(followupMatch[1]),data,user):sales.orderAgain(Number(followupMatch[1]),user)));
+      const communicationMatch=path.match(/^\/api\/orders\/(\d+)\/(messages|delivery-updates)$/);
+      if(communicationMatch&&req.method==='POST')return send(201,await sales[communicationMatch[2]==='messages'?'message':'deliveryUpdate'](Number(communicationMatch[1]),data,user));
+      const resolutionMatch=path.match(/^\/api\/orders\/(\d+)\/resolution$/);
+      if(resolutionMatch){
+        const id=Number(resolutionMatch[1]);
+        if(req.method==='GET'){
+          insist(['staff','customer','billing','delivery','inventory','seller'].includes(user.role),'Access denied.',403);
+          const o=await sales.detail(id,user.role==='customer'?user:{role:'staff'});
+          insist(o.order_status!=='draft','Drafts have no resolution workflow.',409);
+          return send(200,{...o.resolution,actions:resolutionActions(o.resolution,o,user,db.demo)});
+        }
+        if(req.method==='POST')return send(200,await changeResolution(sales,id,data,user));
+      }
+      const processingMatch=path.match(/^\/api\/orders\/(\d+)\/(processing|outcome|resolve)$/);
+      if(processingMatch){
+        insist(user.role==='staff','Staff access required.',403);
+        const id=Number(processingMatch[1]),order=await sales.detail(id,user),requests=await sales.requests(user,id),stage=processingStage(order,requests,db.demo);
+        if(req.method==='GET'&&processingMatch[2]==='processing')return send(200,stage);
+        if(req.method==='POST'&&processingMatch[2]==='resolve')return send(200,await integrations.resolveStopped(id,user));
+        if(req.method==='POST'&&processingMatch[2]==='outcome'){
+          insist(data.version===stage.version,'This order changed. Refresh before applying an outcome.',409);
+          insist(stage.options.some(o=>o.value===data.outcome),'This outcome is not available for the current stage.',409);
+          if(['unsuccessful','cancel'].includes(data.outcome))insist(typeof data.reason==='string'&&data.reason.trim().length>0&&data.reason.trim().length<=1000,'Enter a customer-facing reason (up to 1,000 characters).');
+          if(data.outcome==='reattempt')return send(200,await sales.reschedule(id,data,user));
+          if(data.outcome==='cancel'){await sales.cancel(id,{reason:data.reason,version:data.version},user);if(db.demo)await integrations.resolveStopped(id,user);return send(200,{order_id:id});}
+          insist(db.demo,'External results are authoritative in integrated mode.',403);
+          insist(data.request_reference===stage.request_reference,'This processing stage changed. Refresh and try again.',409);
+          const request=stage.request_reference?requests.find(r=>r.request_reference===stage.request_reference):await sales.prepareRetry(id,data.version,user);
+          const outcome=data.outcome==='successful'?'success':request.action==='confirm'?'expired':request.service==='billing'&&request.action==='cancel'?'paid':'reject';
+          const result=await integrations.dispatch(request.request_reference,user,outcome,data.reason,{recordAttempt:true});
+          if(db.demo&&processingEnd(await sales.detail(id,user)).finished)await integrations.resolveStopped(id,user);
+          return send(200,result);
+        }
+      }
       if(path==='/api/profile'&&req.method==='GET') return send(200,await accounts.profile(user));
       if(path==='/api/profile'&&req.method==='PUT') return send(200,await accounts.update(data,user));
       if(path==='/api/offers'&&req.method==='GET') return send(200,await sales.offers());
@@ -77,7 +130,7 @@ export function application(db) {
       }
       if(path==='/api/orders') {
         if(req.method==='GET') return send(200,await sales.list(user,Object.fromEntries(url.searchParams)));
-        if(req.method==='POST') return send(201,await sales.save(data,user));
+        if(req.method==='POST'){insist(user.role==='customer','Drafts are available only in customer accounts.',403);return send(201,await sales.save(data,user));}
       }
       const match=path.match(/^\/api\/orders\/(\d+)(?:\/(review|submit|cancel))?$/);
       if(match) {
@@ -86,10 +139,14 @@ export function application(db) {
         if(req.method==='PUT'&&!action) return send(200,await sales.save(data,user,id));
         if(req.method==='POST'&&action==='review') return send(200,await sales.review(id,user));
         if(req.method==='POST'&&action==='submit') return send(200,await sales.submit(id,data,user));
-        if(req.method==='POST'&&action==='cancel') return send(200,await sales.cancel(id,data,user));
+        if(req.method==='POST'&&action==='cancel'){await sales.cancel(id,data,user);if(db.demo)await integrations.resolveStopped(id,{role:'staff'});return send(200,{order_id:id});}
       }
-      if(path==='/api/operations/requests'&&req.method==='GET') return send(200,await sales.requests(user));
-      if(path==='/api/operations/dispatch'&&req.method==='POST') return send(200,await integrations.dispatch(data.request_reference,user,data.outcome));
+      if(path==='/api/operations/requests'&&req.method==='GET') return send(200,await sales.requests(user,url.searchParams.get('order_id')));
+      if(path==='/api/operations/dispatch'&&req.method==='POST') {
+        insist(user.role==='staff','Staff access required.',403);
+        if(db.demo&&['reject','expired','paid'].includes(data.outcome))insist(typeof data.reason==='string'&&data.reason.trim().length>0&&data.reason.trim().length<=1000,'Enter a customer-facing reason (up to 1,000 characters).');
+        return send(200,await integrations.dispatch(data.request_reference,user,data.outcome,data.reason));
+      }
       throw new Problem(404,'Not found.');
     } catch(error) {
       if(!error.status) console.error(error);

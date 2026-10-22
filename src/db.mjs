@@ -1,3 +1,4 @@
+import {resolutionSchema} from './resolution.mjs';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { passwordHash } from './util.mjs';
@@ -25,7 +26,7 @@ export async function connect({ demo = false, file = 'data/demo.sqlite', mysqlUr
     return result;
   };
   const db = {
-    demo, query,
+    demo, dialect:demo?'sqlite':'mysql', query,
     async tx(work) {
       const task = queue.then(async () => {
         const c = pool ? await pool.getConnection() : null;
@@ -50,10 +51,25 @@ export async function connect({ demo = false, file = 'data/demo.sqlite', mysqlUr
   return db;
 }
 export const profileSchema = `CREATE TABLE IF NOT EXISTS sales_customer_profile (customer_id INTEGER PRIMARY KEY, default_recipient_name VARCHAR(150) NOT NULL, default_delivery_address TEXT NOT NULL)`;
+export const notificationSchema = (mysql=false) => `CREATE TABLE IF NOT EXISTS sales_notification (notification_id INTEGER PRIMARY KEY ${mysql?'AUTO_INCREMENT':'AUTOINCREMENT'}, notification_key VARCHAR(100) NOT NULL UNIQUE, customer_id INTEGER NOT NULL, order_id INTEGER NOT NULL, kind VARCHAR(40) NOT NULL, message TEXT NOT NULL, created_at VARCHAR(40) NOT NULL, read_at VARCHAR(40))`;
+export const paymentSchema = `CREATE TABLE IF NOT EXISTS sales_order_payment (order_id INTEGER PRIMARY KEY, payment_method VARCHAR(30) NOT NULL CHECK(payment_method IN ('prepaid','gcash','bank_transfer','cod')))`;
+export const communicationSchema = (mysql=false) => {
+ const id=mysql?'INTEGER PRIMARY KEY AUTO_INCREMENT':'INTEGER PRIMARY KEY AUTOINCREMENT';
+ return [
+ `CREATE TABLE IF NOT EXISTS sales_order_message (message_id ${id}, order_id INTEGER NOT NULL, sender_role VARCHAR(20) NOT NULL, sender_id INTEGER NOT NULL, body TEXT NOT NULL, created_at VARCHAR(40) NOT NULL)`,
+ `CREATE TABLE IF NOT EXISTS sales_delivery_update (update_id ${id}, order_id INTEGER NOT NULL, kind VARCHAR(20) NOT NULL, reason TEXT NOT NULL, estimated_at VARCHAR(40), next_update_at VARCHAR(40), actor_id INTEGER NOT NULL, created_at VARCHAR(40) NOT NULL)`
+ ];
+};
+export const preferenceSchema = `CREATE TABLE IF NOT EXISTS sales_payment_preference (customer_id INTEGER PRIMARY KEY, payment_method VARCHAR(30) NOT NULL)`;
 export const extensions = (mysql = false) => {
   const id = mysql ? 'INTEGER PRIMARY KEY AUTO_INCREMENT' : 'INTEGER PRIMARY KEY AUTOINCREMENT';
   return [
+    ...communicationSchema(mysql),
+    preferenceSchema,
+    ...resolutionSchema(mysql),
     profileSchema,
+    paymentSchema,
+    notificationSchema(mysql),
     `CREATE TABLE IF NOT EXISTS sales_user (user_id ${id}, email VARCHAR(255) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL, role VARCHAR(20) NOT NULL, customer_id INTEGER)`,
     `CREATE TABLE IF NOT EXISTS sales_session (token VARCHAR(100) PRIMARY KEY, user_id INTEGER NOT NULL, csrf VARCHAR(100) NOT NULL, expires BIGINT NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS sales_order_facts (order_id INTEGER PRIMARY KEY, version INTEGER NOT NULL DEFAULT 1, stock VARCHAR(30) NOT NULL DEFAULT 'none', payment VARCHAR(30) NOT NULL DEFAULT 'none', shipment VARCHAR(30) NOT NULL DEFAULT 'none', reservation_json TEXT, reservation_expires BIGINT, invoice_reference VARCHAR(100), transaction_reference VARCHAR(100), tracking_reference VARCHAR(100), reconciliation TEXT, billing_clear INTEGER NOT NULL DEFAULT 0, release_clear INTEGER NOT NULL DEFAULT 0)`,

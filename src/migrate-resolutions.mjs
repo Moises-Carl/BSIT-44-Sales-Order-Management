@@ -1,0 +1,1 @@
+import {connect} from './db.mjs';import {resolutionSchema} from './resolution.mjs';const db=await connect();try{for(const sql of resolutionSchema(true))await db.query(sql);console.log('Refund and return records ready.');}finally{await db.close();}

@@ -1,3 +1,4 @@
+import {paymentMethods} from './payment.mjs';
 import { insist, text, passwordHash } from './util.mjs';
 export class Accounts {
  constructor(db){this.db=db;}
@@ -18,15 +19,18 @@ export class Accounts {
  }
  async profile(user){
   insist(user.role==='customer','Customer profile access required.',403);
-  const [row]=await this.db.query('SELECT c.customer_id,c.customer_name,c.email,c.contact_number,p.default_recipient_name,p.default_delivery_address FROM customer c LEFT JOIN sales_customer_profile p ON p.customer_id=c.customer_id WHERE c.customer_id=?',[user.customer_id]);
-  insist(row,'Profile not found.',404);return {...row,default_recipient_name:row.default_recipient_name??row.customer_name,default_delivery_address:row.default_delivery_address??''};
+  const [row]=await this.db.query('SELECT c.customer_id,c.customer_name,c.email,c.contact_number,p.default_recipient_name,p.default_delivery_address,pm.payment_method AS preferred_payment_method FROM customer c LEFT JOIN sales_customer_profile p ON p.customer_id=c.customer_id LEFT JOIN sales_payment_preference pm ON pm.customer_id=c.customer_id WHERE c.customer_id=?',[user.customer_id]);
+  insist(row,'Profile not found.',404);return {...row,default_recipient_name:row.default_recipient_name??row.customer_name,default_delivery_address:row.default_delivery_address??'',preferred_payment_method:row.preferred_payment_method||''};
  }
  async update(data,user){
   insist(user.role==='customer','Customer profile access required.',403);
   const name=text(data.customer_name,'Full name');
   const clean=(key,max)=>{insist(typeof data[key]==='string'&&data[key].trim().length<=max,'Invalid '+key+' (maximum '+max+' characters).');return data[key].trim();};
   const contact=clean('contact_number',30),recipient=clean('default_recipient_name',150),address=clean('default_delivery_address',3000);
+  const preference=data.preferred_payment_method;
+  insist(preference===undefined||preference===''||paymentMethods(this.db.demo).some(x=>x.value===preference),'Choose an available payment method.');
   await this.db.tx(async q=>{
+   if(preference!==undefined){await q('DELETE FROM sales_payment_preference WHERE customer_id=?',[user.customer_id]);if(preference)await q('INSERT INTO sales_payment_preference (customer_id,payment_method) VALUES (?,?)',[user.customer_id,preference]);}
    await q('UPDATE customer SET customer_name=?,contact_number=? WHERE customer_id=?',[name,contact,user.customer_id]);
    const [row]=await q('SELECT customer_id FROM sales_customer_profile WHERE customer_id=?',[user.customer_id]);
    if(row)await q('UPDATE sales_customer_profile SET default_recipient_name=?,default_delivery_address=? WHERE customer_id=?',[recipient,address,user.customer_id]);

@@ -95,3 +95,36 @@ test('live HTTP adapter signs requests, queries before retry and rejects unverif
  await new Promise(r=>service.listen(0,'127.0.0.1',r));const original={url:process.env.INVENTORY_URL,secret:process.env.INVENTORY_SECRET,mode:process.env.NODE_ENV};process.env.INVENTORY_URL='http://127.0.0.1:'+service.address().port+'/';process.env.INVENTORY_SECRET=secret;process.env.NODE_ENV='development';
  try{const live=new Integrations(new Sales({...db,demo:false}));await live.dispatch(ref,staff);assert.equal((await facts(id)).order_status,'awaiting_payment');const [request]=await db.query('SELECT * FROM sales_outbox WHERE request_reference=?',[ref]);await live.remote(request);assert.deepEqual(calls,['GET','POST','GET']);badSignature=true;await assert.rejects(live.remote(request),/Unverified/);}finally{await new Promise(r=>service.close(r));for(const[key,value]of [['INVENTORY_URL',original.url],['INVENTORY_SECRET',original.secret],['NODE_ENV',original.mode]]){if(value===undefined)delete process.env[key];else process.env[key]=value;}}
 });
+
+test('attention is a derived view for unresolved requests, expiry and reconciliation with customer isolation',async()=>{
+ const id=await draft();await submit(id);
+ const other=(await sales.save({...input(),customer_id:2},staff)).order_id;const review=await sales.review(other,staff);await sales.submit(other,{...review,submission_reference:'staff-other'},staff);
+ await dispatch(id,'inventory','reserve','timeout');
+ assert.deepEqual((await sales.list(staff,{status:'attention'})).map(o=>o.order_id),[id]);
+ assert.equal((await sales.list(jamie,{status:'attention'})).length,0);
+ assert.equal((await sales.list(alex,{status:'attention'}))[0].unresolved,1);
+ assert.equal((await facts(id)).order_status,'pending_stock');
+ await dispatch(id,'inventory','reserve');
+ assert.equal((await sales.list(staff,{status:'attention'})).length,0);
+ await db.query('UPDATE sales_order_facts SET reservation_expires=? WHERE order_id=?',[Date.now()-1,id]);
+ assert.equal((await sales.list(staff,{status:'attention'}))[0].order_id,id);
+ await dispatch(other,'inventory','reserve','reject');
+ assert.equal((await sales.list(staff,{status:'attention'})).length,2);
+});
+test('unsupported problem scenarios cannot silently record successful simulator responses',async()=>{
+ const id=await draft();await submit(id);
+ await assert.rejects(dispatch(id,'inventory','reserve','expired'),/does not support/);
+ assert.equal((await facts(id)).stock,'none');
+ await dispatch(id,'inventory','reserve');await dispatch(id,'billing','invoice');await dispatch(id,'billing','verify');await dispatch(id,'inventory','confirm');
+ await assert.rejects(dispatch(id,'delivery','accept','expired'),/does not support/);
+ assert.equal((await facts(id)).shipment,'none');
+});
+
+test('selected-order operations retain payloads and simulator responses and remain staff-only',async()=>{
+ const first=await draft(),second=await draft();await submit(first);await submit(second);await dispatch(first,'inventory','reserve');
+ const requests=await sales.requests(staff,first);
+ assert.ok(requests.length>0);assert.ok(requests.every(r=>r.order_id===first));
+ const reserve=requests.find(r=>r.action==='reserve');assert.ok(JSON.parse(reserve.payload).items.length);assert.equal(JSON.parse(reserve.simulated_response).status,'reserved');
+ await assert.rejects(sales.requests(alex,first),/Staff access/);
+ await assert.rejects(sales.requests(staff,'invalid'),/Invalid order/);
+});
