@@ -17,3 +17,8 @@ MySQL and real external integrations remain unverified. Local mock/simulator suc
 ## Customer account and draft update
 
 61 backend/HTTP/presentation tests pass. Both `node tests/browser-qa.mjs` and `node tests/browser-accounts.mjs` pass in local Edge. See [account/draft verification](ACCOUNTS_AND_DRAFTS.md) for the complete coverage, screenshots, additive migration and live deployment limits.
+
+
+## Local product photos and sage presentation
+
+63 tests pass, including Catalogue-priority/demo-isolation and unsafe-URL/HTML-escaping checks. Existing order and account Edge walkthroughs pass. `node tests/browser-photos.mjs` verifies both sellers/all six local assets, thumbnails in selection/selected/review/details, square contain layout, alt text, missing/broken fallbacks, no external image requests, and no horizontal overflow at desktop/390px/320px. Screenshots were visually reviewed; tall-image bounds were corrected and checked again. Sources, hashes, licensing and exact Catalogue limitations are in [PRODUCT_PHOTOS.md](PRODUCT_PHOTOS.md).

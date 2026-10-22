@@ -22,6 +22,10 @@ The page also provides demo sign-in buttons. Demo data persists in `data/demo.sq
 
 **Every demo Catalogue record, reservation, payment, and shipment is simulated.** Simulator controls are restricted to the staff **Demo operations** page. Customer accounts can only access their own orders. No real integrations have been verified.
 
+## Local demo product photos
+
+All six demonstration products have locally bundled sample photos in selection, selected items, review and order details. Photos are illustrative; the demo works without external image services. Catalogue image URLs/references can take priority through the shared thumbnail adapter. See [photo sources, licenses and integration notes](docs/PRODUCT_PHOTOS.md).
+
 ## Customer accounts and saved drafts
 
 Choose **Create a customer account** at sign-in, then use **My profile** to save contact and default recipient/address details. New orders prefill those details; reopened drafts retain their own saved values. Recipient edits apply only to the current order unless you choose **Save as my default details**. Use **Save draft** beside Continue, then resume through **My orders → Drafts → View order → Continue draft**. Leaving an unsaved order offers Save draft, Discard changes, and Keep editing.

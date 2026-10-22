@@ -1,0 +1,74 @@
+[
+  {
+    "file": "notebook.jpg",
+    "demo_offer_id": 1,
+    "author": "Eva Bronzini",
+    "source": "https://www.pexels.com/photo/blank-page-of-a-notebook-7965469/",
+    "download": "https://images.pexels.com/photos/7965469/pexels-photo-7965469.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "license": "Pexels License",
+    "license_url": "https://www.pexels.com/license/",
+    "retrieved": "2026-10-22",
+    "changes": "640-pixel-wide compressed JPEG rendition; no crop, recolouring or background removal",
+    "sha256": "7110370526ca2f73dd7e3f1aab868453ac0ff9b0f7b030528866f2cf69c8c9d4"
+  },
+  {
+    "file": "tote.jpg",
+    "demo_offer_id": 2,
+    "author": "Artem Podrez",
+    "source": "https://www.pexels.com/photo/a-person-holding-a-tote-bag-6787035/",
+    "download": "https://images.pexels.com/photos/6787035/pexels-photo-6787035.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "license": "Pexels License",
+    "license_url": "https://www.pexels.com/license/",
+    "retrieved": "2026-10-22",
+    "changes": "640-pixel-wide compressed JPEG rendition; no crop, recolouring or background removal",
+    "sha256": "9d1ba8381bb9e0872d1a219bba7b4dd62affdb88273e011693407355f094669a"
+  },
+  {
+    "file": "tumbler.jpg",
+    "demo_offer_id": 3,
+    "author": "janam thapa",
+    "source": "https://www.pexels.com/photo/a-hand-holding-a-matte-black-tumbler-9245381/",
+    "download": "https://images.pexels.com/photos/9245381/pexels-photo-9245381.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "license": "Pexels License",
+    "license_url": "https://www.pexels.com/license/",
+    "retrieved": "2026-10-22",
+    "changes": "640-pixel-wide compressed JPEG rendition; no crop, recolouring or background removal",
+    "sha256": "19c16bab140e09f29f987b986b503892419dbbb2d442a182d4472af1eb28bd5a"
+  },
+  {
+    "file": "pens.jpg",
+    "demo_offer_id": 4,
+    "author": "Pragyan Bezbaruah",
+    "source": "https://www.pexels.com/photo/pen-on-black-surface-1758886/",
+    "download": "https://images.pexels.com/photos/1758886/pexels-photo-1758886.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "license": "Pexels License",
+    "license_url": "https://www.pexels.com/license/",
+    "retrieved": "2026-10-22",
+    "changes": "640-pixel-wide compressed JPEG rendition; no crop, recolouring or background removal",
+    "sha256": "b9d709bf3110cb7585ae921dab331df7a92982b87cc965f29ab3751e6e747a57"
+  },
+  {
+    "file": "planner.jpg",
+    "demo_offer_id": 5,
+    "author": "Tara Winstead",
+    "source": "https://www.pexels.com/photo/close-up-shot-of-weekly-planner-6690930/",
+    "download": "https://images.pexels.com/photos/6690930/pexels-photo-6690930.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "license": "Pexels License",
+    "license_url": "https://www.pexels.com/license/",
+    "retrieved": "2026-10-22",
+    "changes": "640-pixel-wide compressed JPEG rendition; no crop, recolouring or background removal",
+    "sha256": "afa81344826cbad4632207ff2045e68e5a94a9c990e3610316c82bf6b5ffd439"
+  },
+  {
+    "file": "cards.jpg",
+    "demo_offer_id": 6,
+    "author": "Pixabay (Pexels contributor)",
+    "source": "https://www.pexels.com/photo/white-ruled-paper-lot-on-brown-wooden-surface-268351/",
+    "download": "https://images.pexels.com/photos/268351/pexels-photo-268351.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "license": "CC0 (linked license on source photo page)",
+    "license_url": "https://www.pexels.com/creative-commons-images/",
+    "retrieved": "2026-10-22",
+    "changes": "640-pixel-wide compressed JPEG rendition; no crop, recolouring or background removal",
+    "sha256": "6e14b5f7f943efc2fb6a0a8391c16937161bfb7a84adcc1cd08117c93d84cb59"
+  }
+]

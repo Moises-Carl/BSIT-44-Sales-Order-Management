@@ -16,17 +16,17 @@ export function application(db) {
     const send=(code,data)=>{res.writeHead(code,{'content-type':'application/json; charset=utf-8'});res.end(JSON.stringify(data));};
     res.setHeader('X-Content-Type-Options','nosniff');
     res.setHeader('Referrer-Policy','same-origin');
-    res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+    res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     res.setHeader('Cache-Control','no-store');
     try {
       const url=new URL(req.url,'http://localhost'), path=url.pathname;
       if(path==='/health') return send(200,{ok:true,mode:db.demo?'demo':'live'});
       if(!path.startsWith('/api/')) {
         insist(req.method==='GET','Method not allowed.',405);
-        const files={'/':'index.html','/app.js':'app.js','/ui.mjs':'ui.mjs','/style.css':'style.css'};
+        const files={'/':'index.html','/app.js':'app.js','/ui.mjs':'ui.mjs','/style.css':'style.css','/product-images.mjs':'product-images.mjs','/demo-products.mjs':'demo-products.mjs',...Object.fromEntries(['notebook','tote','tumbler','pens','planner','cards'].map(name=>['/assets/demo-products/'+name+'.jpg','assets/demo-products/'+name+'.jpg']))};
         insist(files[path],'Not found.',404);
         const content=await readFile(join(root,files[path]));
-        res.writeHead(200,{'content-type':(path.endsWith('.js')||path.endsWith('.mjs'))?'text/javascript; charset=utf-8':path.endsWith('.css')?'text/css; charset=utf-8':'text/html; charset=utf-8'});res.end(content);return;
+        res.writeHead(200,{'content-type':(path.endsWith('.js')||path.endsWith('.mjs'))?'text/javascript; charset=utf-8':path.endsWith('.css')?'text/css; charset=utf-8':path.endsWith('.jpg')?'image/jpeg':'text/html; charset=utf-8'});res.end(content);return;
       }
       req.setEncoding('utf8');
       let raw='';
