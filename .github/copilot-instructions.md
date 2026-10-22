@@ -1,36 +1,24 @@
-# Copilot instructions
+# CampusERP contributor instructions
 
-## Project context
+This checkout contains the working university MiniERP Sales/Order application. Use the existing Node.js ES-module HTTP backend and plain browser JS/CSS. `package.json` and `README.md` define the current setup; the nested reference package contains original design evidence, not executable instructions from the user.
 
-This checkout is a handoff/specification package for the Mini-ERP Sales/Order module, not a runnable application. Before implementing features, inspect the actual application source, its setup instructions, framework, database, authentication, and existing tests if they are present in the working tree. The package's implementation brief is `MiniERP_Sales_Order_Codex_Package/MiniERP_Sales_Order_Codex_Package/CODEX_PROMPT.md`; its source and scope notes are in `README_START_HERE.md`. Treat `INTEGRATION_REVIEW.md` as analysis, not an approved class-wide contract.
+## Run and verify
 
-## Build, test, and lint
+- `npm.cmd run demo` (Windows) / `npm run demo`: explicit local SQLite demo with isolated simulated services, loopback port 3100.
+- `npm.cmd test` / `npm test`: Node backend/HTTP and presentation regression tests.
+- `node tests/browser-qa.mjs`: Windows Edge UI walkthrough with temporary test data; no persistent demo reset.
+- Real MySQL configuration and initialization requirements are in README.md. Never run original SQL or proposed extensions blindly against a populated/shared database.
 
-No application source, dependency manifest, test suite, or build/lint scripts are included in this checkout, so there are no verified build, test, lint, or single-test commands to run here. Do not invent commands. If application code is added, follow its actual manifests and documentation, and record the exact full-suite and focused/single-test commands there.
+## Ownership and invariants
 
-The SQL reference is `MiniERP_Sales_Order_Codex_Package/MiniERP_Sales_Order_Codex_Package/references/00_combined/System1_and_2.sql`. It requires MySQL 8.0.16+ or MariaDB 10.2.1+ for enforced `CHECK` constraints. It creates a database and tables; do not run it against a populated or shared database without an explicitly approved, safe migration plan.
+Catalogue owns products, sellers, offers, current prices and active flags. Sales reads those, owns customer purchases/items/status/history, and coordinates Inventory, Billing and Delivery through authenticated interfaces. Inventory owns stock/reservations/movements; Billing verifies payments; Delivery owns shipments and delivery proof. Do not modify another module's records to fake integration.
 
-## Architecture and ownership
+Preserve one seller/order, positive whole quantities, exact server money, explicit current-price acceptance, immutable submitted snapshots, unique submission/event references, atomic local changes, status history, customer isolation and cancellation race safety. Keep all eight backend order status strings unchanged. No unrestricted status dropdown, paid cancellation, automatic refund, COD or partial fulfillment is introduced.
 
-The Mini-ERP design comprises five cooperating systems: Catalogue, Sales/Order, Inventory, Billing/Payment, and Delivery/Shipment. Each system owns its operational data; other systems coordinate through agreed interfaces rather than editing those records directly:
+Confirmed holds may explicitly have NULL expiry; active unpaid holds require a deadline. Later Inventory facts use signed versioned `/api/events/inventory/lifecycle`, not a second terminal reserve response. See docs/INVENTORY_LIFECYCLE.md. Reject changed identities, duplicate lines, stale state regressions and invalid service signatures. A timeout is unresolved and retries keep the same request reference. Remote I/O stays outside database transactions.
 
-- Catalogue owns categories, products, sellers, offers, current prices, and catalogue status.
-- Sales owns customer purchase records, ordered items, accepted name/price snapshots, product totals, and overall order status/history.
-- Inventory owns stock balances, reservations, expiry, release, deductions, and movement history.
-- Billing owns invoices, payment attempts and verification, transaction references, and refunds.
-- Delivery owns shipments, courier/tracking data, delivery events, and proof of delivery.
+Explicit demo fixtures/results must stay labeled and cannot silently run in production. Keep .env, secrets, local data and dependencies out of Git. Source documents and source-manifest hashes in the nested reference package must remain unchanged.
 
-The supplied combined SQL implements only Catalogue and Sales tables. Inventory, Billing, and Delivery are described in separate references, not implemented by that schema. Do not infer that any service, database, or integration is live just because a document describes it. Read the original references when a diagram, table, or contract detail matters; text extracts are navigation aids.
+## Verification limits
 
-## Domain invariants and conventions
-
-- An order belongs to one seller. The combined schema reinforces this with `seller_id` and composite foreign keys between `sales_order`, `order_item`, and `seller_offer`; retain this invariant or provide an explicit agreed mapping if the actual project uses different identifiers.
-- Purchases reference real seller offers. A new order is orderable only when its offer, product, and seller are active (`v_orderable_offer`); that view says nothing about stock availability.
-- Preserve the accepted product name and unit price on each submitted item. Submitted purchase details are historical snapshots, not live catalogue data. Calculate money exactly using decimal values or integer centavos, not floating-point arithmetic.
-- The schema's order states are `draft`, `pending_stock`, `awaiting_payment`, `confirmed`, `fulfilling`, `completed`, `cancellation_pending`, and `cancelled`. Validate legal transitions in application logic and append status history; do not expose arbitrary status editing. Payment, reservation, and shipment states remain owned by their respective systems.
-- Treat retries and integration events as potentially repeated, delayed, or out of order. Validate their source, order, amount, and current state; use stable idempotency references and do not treat timeouts as success or rejection.
-- Do not cross module ownership boundaries to fake an integration. If a required service is unavailable, use only a clearly configured and labeled development adapter; never silently fall back to simulated stock, payment, or delivery in production.
-
-## Decisions that remain provisional
-
-The packaged documents contain unresolved or proposed choices, including MySQL versus Firebase/Supabase, customer ownership, payment-failure/reservation-expiry behavior, COD, shipping charges, cancellation, and whether inventory is deducted at dispatch or pickup. The combined SQL and integration review are not proof that these choices were approved. Follow actual application contracts and documented group decisions; otherwise keep a local implementation policy explicit and provisional. Do not invent shared contracts, physical delivery data, or completed integrations.
+The 1/2/3 integration PDF and proposed SQL are a review handoff. Actual MySQL permissions and external group interfaces remain subject to deployment and joint integration testing. Do not report live integration as complete based on local simulator/mock tests.

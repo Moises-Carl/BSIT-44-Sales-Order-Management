@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {milestones,nextStep,canCancel,sumCentavos} from '../public/ui.mjs';
+import {milestones,nextStep,canCancel,sumCentavos,cancellationChecks,stockExpired} from '../public/ui.mjs';
 const valid={order_status:'awaiting_payment',order_date:'2026-10-22 01:00:00',stock:'reserved',reservation_expires:2000,payment:'pending',shipment:'none'};
 test('progress requires actual facts, not a confirmed status label',()=>{const p=milestones({...valid,order_status:'confirmed',stock:'none',payment:'none'},1000);assert.deepEqual(p.map(m=>m.done),[true,false,false,false,false]);});
 test('expired stock is not shown as verified and paid stock confirmation is distinguished',()=>{assert.equal(milestones(valid,3000)[1].done,false);assert.match(nextStep({...valid,payment:'verified',reservation_expires:Date.now()+60000}),/Inventory/);});
@@ -10,3 +10,8 @@ test('drafts and cancellations do not display the normal workflow as complete',(
 test('customer reconciliation messages avoid raw operational detail',()=>{const o={...valid,reconciliation:'RAW-PAYLOAD-ERROR'};assert.ok(!nextStep(o).includes('RAW'));assert.match(nextStep(o),/sales team/);assert.match(nextStep(o,true),/Needs attention/);});
 test('paid orders never show customer cancellation',()=>{assert.equal(canCancel({...valid,payment:'verified'}),false);assert.equal(canCancel(valid),true);assert.equal(canCancel({...valid,order_status:'fulfilling'}),false);});
 test('submitted product values sum decimal strings exactly',()=>{assert.equal(sumCentavos([{order_total:'0.10'},{order_total:'0.20'},{order_total:'89.50'}]),8980);});
+
+test('confirmed non-expiring and fulfilled stock milestones stay verified',()=>{for(const stock of ['confirmed','fulfilled']){const p=milestones({...valid,stock,reservation_expires:null,payment:'verified'},5000);assert.equal(p[1].done,true);}});
+
+test('paid cancellation never shows an unpaid check verified, including legacy contradictory flags',()=>{const c=cancellationChecks({billing_clear:1,payment:'verified',release_clear:1,stock:'released'});assert.equal(c.unpaidVerified,false);assert.equal(c.paymentVerified,true);assert.equal(c.releaseVerified,true);});
+test('confirmed non-expiring stock is not displayed as expired',()=>{assert.equal(stockExpired({order_status:'confirmed',stock:'confirmed',reservation_expires:null}),false);assert.equal(stockExpired({order_status:'confirmed',stock:'confirmed',reservation_expires:1}),true);});

@@ -69,7 +69,7 @@ export class Integrations {
         else Object.assign(e,{status:'reserved',expires_at:Date.now()+30*60*1000,reservations:p.items.map(i=>({order_item_id:i.order_item_id,offer_id:i.offer_id,quantity:i.quantity,reservation_id:`SIM-R-${i.order_item_id}`}))});
       } else if(pair==='billing:invoice') Object.assign(e,{status:'created',invoice_reference:`SIM-INV-${p.order_id}`,amount:p.product_total,currency:'PHP'});
       else if(pair==='billing:verify') Object.assign(e,{status:outcome==='reject'?'failed':'verified',invoice_reference:order.invoice_reference,amount:p.product_total,currency:'PHP',transaction_reference:`SIM-TXN-${p.order_id}`});
-      else if(pair==='inventory:confirm') Object.assign(e,{status:outcome==='expired'||!this.sales.validStock(order)?'expired':'confirmed',expires_at:Date.now()+24*60*60*1000,reservations:JSON.parse(order.reservation_json||'[]')});
+      else if(pair==='inventory:confirm') Object.assign(e,{status:outcome==='expired'||!this.sales.validStock(order)?'expired':'confirmed',expires_at:null,reservations:JSON.parse(order.reservation_json||'[]')});
       else if(pair==='delivery:accept') Object.assign(e,{status:'accepted',tracking_reference:`SIM-TRACK-${p.order_id}`,order_item_ids:p.items.map(i=>i.order_item_id)});
       else if(pair==='delivery:verify_delivery') Object.assign(e,{status:'delivered',tracking_reference:order.tracking_reference,proof_reference:`SIM-POD-${p.order_id}`});
       else if(pair==='billing:cancel') Object.assign(e,{status:order.payment==='verified'||outcome==='paid'?'paid':'cancelled_unpaid',amount:p.product_total,currency:'PHP',invoice_reference:order.invoice_reference||`SIM-INV-${p.order_id}`,transaction_reference:order.transaction_reference||`SIM-TXN-${p.order_id}`});

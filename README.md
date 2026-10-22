@@ -97,3 +97,7 @@ For the recorded verification results, see [docs/VERIFICATION.md](docs/VERIFICAT
 
 See [GitHub and groupmate setup](docs/GITHUB_SETUP.md) for uploading this repository, inviting collaborators, cloning, and running the local demo.
 
+
+## Latest Sales-side integration fixes
+
+The locally implemented fixes and current verification are recorded in [docs/BUG_FIXES.md](docs/BUG_FIXES.md). Inventory's signed lifecycle receiver, confirmed non-expiring validity, event-version rules and exact envelope are documented in [docs/INVENTORY_LIFECYCLE.md](docs/INVENTORY_LIFECYCLE.md). Real external services and MySQL still require joint integration verification.

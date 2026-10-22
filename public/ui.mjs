@@ -1,8 +1,10 @@
 export const statuses = ['draft','pending_stock','awaiting_payment','confirmed','fulfilling','completed','cancellation_pending','cancelled'];
 export const label = value => String(value || 'not available').replaceAll('_',' ').replace(/^./, c => c.toUpperCase());
+export const stockExpired = (order,time=Date.now()) => ['reserved','confirmed'].includes(order.stock)&&order.reservation_expires!==null&&Number(order.reservation_expires)>0&&Number(order.reservation_expires)<=time&&!['completed','cancelled'].includes(order.order_status);
+export function cancellationChecks(order){return {unpaidVerified:Boolean(order.billing_clear)&&order.payment!=='verified',paymentVerified:order.payment==='verified',releaseVerified:Boolean(order.release_clear)&&order.stock==='released'};}
 export function nextStep(order, staff = false) {
   if (order.reconciliation) return staff ? 'Needs attention — review the verified service results before proceeding.' : 'Your order needs a review by the sales team. Progress is paused.';
-  if (['reserved','confirmed'].includes(order.stock) && order.reservation_expires && Number(order.reservation_expires) <= Date.now() && !['completed','cancelled'].includes(order.order_status)) return 'Stock reservation expired. Waiting for the sales team to review.';
+  if (stockExpired(order)) return 'Stock reservation expired. Waiting for the sales team to review.';
   if (order.payment === 'verified' && order.order_status === 'awaiting_payment') return 'Payment verified. Waiting for Inventory to confirm stock is still valid.';
   return {
     draft: 'Continue your draft, then review the prices before submitting.',
@@ -18,7 +20,7 @@ export function nextStep(order, staff = false) {
 export function milestones(order, time = Date.now()) {
   const stopped = ['draft','cancelled','cancellation_pending'].includes(order.order_status);
   const submitted = Boolean(order.order_date) && order.order_status !== 'draft';
-  const stockValid = ['reserved','confirmed'].includes(order.stock) && Number(order.reservation_expires) > time;
+  const stockValid = order.stock==='fulfilled'||(order.stock==='confirmed'&&order.reservation_expires===null)||(['reserved','confirmed'].includes(order.stock)&&Number(order.reservation_expires)>time);
   const historicalStock = order.order_status === 'completed' && order.history?.some(h => h.new_status === 'awaiting_payment');
   const checks = [submitted, submitted && Boolean(stockValid || historicalStock), order.payment === 'verified', ['accepted','delivered'].includes(order.shipment) && Boolean(order.tracking_reference), order.order_status === 'completed' && order.shipment === 'delivered' && order.payment === 'verified'];
   const names = ['Submitted','Stock reserved','Payment verified','Preparing delivery','Delivered'];

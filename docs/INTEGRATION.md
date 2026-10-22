@@ -62,7 +62,7 @@ Responses/events include `event_reference` (unique, maximum 100 characters), mat
 | inventory / reserve | `status: reserved`, future `expires_at`, and `reservations` containing every ordered item exactly once with `order_item_id`, `offer_id`, matching `quantity`, unique nonblank `reservation_id`. Or `status: rejected`, optionally `short_items`. No partial success. |
 | billing / invoice | `status: created`, nonblank `invoice_reference`, `amount` equal to the accepted product total, `currency: PHP`. |
 | billing / verify | `status: verified` or `failed`, matching `invoice_reference`, matching `amount`, `currency: PHP`; verified results also require `transaction_reference`. |
-| inventory / confirm | `status: confirmed`, future `expires_at`, and exactly the existing ordered `reservations`; or `status: expired`. Confirmation follows verified payment and must attest all original reservations remain valid. |
+| inventory / confirm | `status: confirmed`, explicit `expires_at: null` (non-expiring) or a valid future expiry, and the same complete reservation identities/quantities in any order; or `status: expired`. Confirmation follows verified payment and must attest all original reservations remain valid. |
 | delivery / accept | `status: accepted`, nonblank `tracking_reference`, `order_item_ids` matching the requested ordered item IDs. Acceptance is eligible only with verified payment and valid confirmed reservation. |
 | delivery / verify_delivery | `status: delivered`, matching `tracking_reference`, nonblank `proof_reference`. The Delivery service verifies actual proof before returning it. |
 | billing / cancel | `status: cancelled_unpaid` only after authoritatively blocking pending/future charges for this order and proving no successful payment; or `status: paid` for reconciliation. |
@@ -81,7 +81,7 @@ Example reservation event:
 }
 ```
 
-Use actual future validity rather than the illustrative timestamp. The Sales API verifies service identity, request/order correlation, current state, amounts, item mappings, and event uniqueness inside one local transaction. Exact duplicate events return a no-op; conflicting duplicate references and outdated terminal results are rejected. Event payloads and errors are retained for audit/reconciliation.
+Use actual future validity rather than the illustrative timestamp. The Sales API verifies service identity, request/order correlation, current state, amounts, item mappings, and event uniqueness inside one local transaction. Semantically identical duplicate events return a no-op independent of JSON object key order; conflicting duplicate references and outdated terminal results are rejected. Event payloads and errors are retained for audit/reconciliation.
 
 ## Cancellation and races
 
@@ -100,3 +100,7 @@ Sales sends known order/item/offer/customer/recipient references only. Weight, d
 Authenticated browser endpoints: `GET /api/orders` (search/status/from/to), `POST /api/orders` (draft), `GET/PUT /api/orders/:id`, `POST /api/orders/:id/review`, `/submit`, `/cancel`, `GET/POST /api/customers`, `GET /api/offers`. Submission needs the exact review `acceptance`, `version`, and a stable unique `submission_reference`.
 
 Staff only: `GET /api/operations/requests`, `POST /api/operations/dispatch` with `request_reference` and demo-only `outcome`. Demo outcomes are success, timeout, stock/payment rejection, stock confirmation expiry, and a cancellation-time paid result. Browser mutations require the session’s `x-csrf-token`; customer IDs supplied by a browser do not override account ownership.
+
+## Implemented Inventory lifecycle updates
+
+Sales now supports non-expiring confirmed holds, order-independent reservation/item matching, canonical event deduplication, and the signed versioned `POST /api/events/inventory/lifecycle` receiver. See [INVENTORY_LIFECYCLE.md](INVENTORY_LIFECYCLE.md) for the exact envelope, sequencing, validation, cancellation guarantees, and remaining external agreements. Later lifecycle notifications use that endpoint rather than overwriting an original request’s terminal result.

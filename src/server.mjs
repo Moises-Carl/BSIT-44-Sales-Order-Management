@@ -27,15 +27,17 @@ export function application(db) {
         const content=await readFile(join(root,files[path]));
         res.writeHead(200,{'content-type':(path.endsWith('.js')||path.endsWith('.mjs'))?'text/javascript; charset=utf-8':path.endsWith('.css')?'text/css; charset=utf-8':'text/html; charset=utf-8'});res.end(content);return;
       }
+      req.setEncoding('utf8');
       let raw='';
       for await(const chunk of req) { raw+=chunk.toString(); insist(Buffer.byteLength(raw)<=131072,'Request too large.',413); }
       let data={};
       if(raw) { try {data=JSON.parse(raw);} catch {throw new Problem(400,'Invalid JSON.');} insist(data&&typeof data==='object'&&!Array.isArray(data),'Expected a JSON object.',400); }
-      const hook=path.match(/^\/api\/events\/(inventory|billing|delivery)$/);
+      const hook=path.match(/^\/api\/events\/(inventory|billing|delivery)(\/lifecycle)?$/);
       if(hook) {
         insist(req.method==='POST','Method not allowed.',405);
         insist(!db.demo,'Live webhooks are disabled in demo mode.',403);
         insist(authentic(process.env[`${hook[1].toUpperCase()}_SECRET`],req.headers['x-sales-timestamp'],raw,req.headers['x-sales-signature']),'Invalid service signature.',401);
+        if(hook[2]){insist(hook[1]==='inventory','Lifecycle endpoint not found.',404);return send(200,await sales.inventoryLifecycle(data));}
         return send(200,await sales.event(hook[1],data));
       }
       if(!['GET','HEAD'].includes(req.method)) {

@@ -1,4 +1,4 @@
-import { insist, text, money, decimal, uid, now, Problem } from './util.mjs';
+import { insist, text, money, decimal, uid, now, Problem, canonicalEvent, sameReservations, sameItemIds, reservationIdentity } from './util.mjs';
 const STATES = ['draft','pending_stock','awaiting_payment','confirmed','fulfilling','completed','cancellation_pending','cancelled'];
 const ALLOWED = {draft:['pending_stock','cancelled'],pending_stock:['awaiting_payment','cancellation_pending'],awaiting_payment:['confirmed','cancellation_pending'],confirmed:['fulfilling'],fulfilling:['completed'],cancellation_pending:['cancelled'],cancelled:['cancellation_pending']};
 export class Sales {
@@ -38,11 +38,13 @@ export class Sales {
   }
   async normalized(q,data,user) {
     const customerId=Number(data.customer_id);
+    insist(Number.isSafeInteger(customerId)&&customerId>0,'Select a valid customer.');
     const [customer]=await q('SELECT * FROM customer WHERE customer_id=?',[customerId]);
     insist(customer && (user.role==='staff'||user.customer_id===customerId),'Select an authorized customer.');
     insist(Array.isArray(data.items)&&data.items.length<=100,'Items must be a list of at most 100 offers.');
     const offers=await this.offers(q), grouped=new Map();
     for (const item of data.items) {
+      insist(item&&typeof item==='object'&&!Array.isArray(item)&&Number.isSafeInteger(Number(item.offer_id))&&Number(item.offer_id)>0,'Each item must reference a valid offer.');
       insist(Number.isSafeInteger(item.quantity)&&item.quantity>0&&item.quantity<=100000,'Quantities must be positive whole numbers, up to 100,000.');
       const offer=offers.find(o=>o.offer_id===Number(item.offer_id));
       insist(offer,'An item is unavailable. Check active offers, products, and sellers.',409);
@@ -88,7 +90,7 @@ export class Sales {
     const offers=await this.offers(q);
     const revised=items.map(item=>{
       const offer=offers.find(o=>o.offer_id===item.offer_id&&o.seller_id===order.seller_id);
-      insist(offer,`Offer ${item.offer_id} is unavailable. Edit the draft before submitting.`,409);
+      insist(offer,`${item.product_name_at_order} (offer #${item.offer_id}) is unavailable. Edit the draft before submitting.`,409);
       return {...item,product_name_at_order:offer.product_name,unit_price_at_order:decimal(money(offer.selling_price))};
     });
     const total=revised.reduce((sum,item)=>sum+money(item.unit_price_at_order)*item.quantity,0);
@@ -148,12 +150,12 @@ export class Sales {
       return {order_id:id};
     });
   }
-  validStock(order) { return ['reserved','confirmed'].includes(order.stock)&&Number(order.reservation_expires)>Date.now(); }
+  validStock(order) { return (order.stock==='confirmed'&&order.reservation_expires===null)||(['reserved','confirmed'].includes(order.stock)&&Number(order.reservation_expires)>Date.now()); }
   async event(service,event) {
     return this.db.tx(async q=>{
       text(event.event_reference,'Event reference',100); text(event.request_reference,'Request reference',100);
       const [seen]=await q('SELECT * FROM sales_event WHERE event_reference=?',[event.event_reference]);
-      if(seen) { insist(seen.service===service&&seen.payload===JSON.stringify(event),'Conflicting duplicate event.',409); return {duplicate:true}; }
+      if(seen) { insist(seen.service===service&&canonicalEvent(JSON.parse(seen.payload))===canonicalEvent(event),'Conflicting duplicate event.',409); return {duplicate:true}; }
       const [request]=await q('SELECT * FROM sales_outbox WHERE request_reference=?',[event.request_reference]);
       insist(request&&request.service===service&&event.order_id===request.order_id,'Event does not match a Sales request.',409);
       const order=await this.owned(q,request.order_id,{role:'staff'});
@@ -174,6 +176,7 @@ export class Sales {
         insist(['reserved','rejected'].includes(status),'Invalid reservation result.');
         if(status==='reserved') {
           insist(Array.isArray(event.reservations)&&event.reservations.length===payload.items.length,'Inventory must reserve every item.');
+          reservationIdentity(event.reservations);
           const ids=new Set();
           for(const item of payload.items) {
             const r=event.reservations.find(r=>r.order_item_id===item.order_item_id);
@@ -200,15 +203,16 @@ export class Sales {
         insist(event.invoice_reference===order.invoice_reference&&event.currency==='PHP'&&money(event.amount)===money(order.order_total),'Payment reference or amount does not match.');
         if(status==='verified') {
           text(event.transaction_reference,'Transaction reference',100);
-          await mark({payment:'verified',transaction_reference:event.transaction_reference});
+          await mark({payment:'verified',billing_clear:0,transaction_reference:event.transaction_reference});
           if(order.order_status==='awaiting_payment'&&this.validStock(order)&&!order.reconciliation) await this.enqueue(q,order.order_id,'inventory','confirm');
           else { await reconcile('Payment succeeded without eligible stock or during cancellation. Do not fulfill; reconcile with Billing and Inventory.'); if(order.order_status==='cancelled') await this.transition(q,order,'cancellation_pending','Late verified payment contradicted unpaid cancellation; reconciliation required',service,event.event_reference); }
         } else { await mark({payment:'failed'}); await reconcile('Payment failed. Cancel the unpaid order and start a new draft; no automatic stock release is assumed.'); }
       } else if(service==='inventory'&&action==='confirm') {
         insist(['confirmed','expired'].includes(status),'Invalid reservation confirmation.');
         if(status==='confirmed') {
-          insist(Number.isSafeInteger(event.expires_at)&&event.expires_at>Date.now(),'Confirmed reservation must have a valid expiry.');
-          insist(JSON.stringify(event.reservations)===order.reservation_json,'Confirmed reservations differ from the accepted reservation.');
+          insist(event.expires_at===null||(Number.isSafeInteger(event.expires_at)&&event.expires_at>Date.now()),'Confirmed reservation must explicitly have no expiry or a valid future expiry.');
+          insist(order.stock==='reserved'&&order.payment==='verified','Reservation is no longer eligible for confirmation.',409);
+          insist(sameReservations(event.reservations,JSON.parse(order.reservation_json||'[]')),'Confirmed reservations differ from the accepted reservation.');
           await mark({stock:'confirmed',reservation_expires:event.expires_at});
           if(order.order_status==='awaiting_payment'&&order.payment==='verified'&&!order.reconciliation) {
             await this.transition(q,order,'confirmed','Verified payment and confirmed valid stock',service,event.event_reference);
@@ -218,7 +222,7 @@ export class Sales {
       } else if(service==='delivery'&&action==='accept') {
         insist(status==='accepted'&&typeof event.tracking_reference==='string'&&event.tracking_reference.length>0,'Invalid shipment acceptance.');
         insist(order.order_status==='confirmed'&&order.payment==='verified'&&this.validStock(order)&&!order.reconciliation,'Shipment is no longer authorized.',409);
-        insist(JSON.stringify(event.order_item_ids)===JSON.stringify(payload.items.map(i=>i.order_item_id)),'Shipment item links do not match.');
+        insist(sameItemIds(event.order_item_ids,payload.items.map(i=>i.order_item_id)),'Shipment item links do not match.');
         await mark({shipment:'accepted',tracking_reference:event.tracking_reference});
         await this.transition(q,order,'fulfilling','Delivery accepted shipment',service,event.event_reference);
         await this.enqueue(q,order.order_id,'delivery','verify_delivery');
@@ -255,6 +259,48 @@ export class Sales {
       await q('INSERT INTO sales_event (event_reference,request_reference,order_id,service,payload,created_at) VALUES (?,?,?,?,?,?)',[event.event_reference,event.request_reference,order.order_id,service,JSON.stringify(event),now()]);
       await q("UPDATE sales_outbox SET status='done',last_error=NULL,lease_until=0 WHERE request_reference=?",[event.request_reference]);
       return {accepted:true};
+    });
+  }
+
+  // Inventory owns lifecycle facts. These versioned notifications never edit stock balances.
+  async inventoryLifecycle(event) {
+    return this.db.tx(async q=>{
+      text(event.event_reference,'Event reference',100);text(event.request_reference,'Request reference',100);
+      insist(event.schema_version===1&&event.event_type==='reservation.lifecycle','Unsupported Inventory lifecycle schema.');
+      insist(Number.isSafeInteger(event.version)&&event.version>0,'A positive Inventory lifecycle version is required.');
+      insist(Number.isSafeInteger(event.occurred_at)&&event.occurred_at>0&&event.occurred_at<=Date.now()+300000,'Invalid Inventory occurrence time.');
+      insist(['expired','released','fulfilled'].includes(event.status),'Unsupported Inventory lifecycle state.');
+      const [seen]=await q('SELECT * FROM sales_event WHERE event_reference=?',[event.event_reference]);
+      if(seen){insist(seen.service==='inventory'&&canonicalEvent(JSON.parse(seen.payload))===canonicalEvent(event),'Conflicting duplicate event.',409);return {duplicate:true};}
+      const [request]=await q('SELECT * FROM sales_outbox WHERE request_reference=?',[event.request_reference]);
+      insist(request&&request.service==='inventory'&&request.action==='reserve'&&request.order_id===event.order_id,'Lifecycle event does not match the original Inventory request.',409);
+      const order=await this.owned(q,event.order_id,{role:'staff'});
+      insist(order.reservation_json&&sameReservations(event.reservations,JSON.parse(order.reservation_json)),'Lifecycle reservations do not match the accepted reservation.',409);
+      const rows=await q("SELECT payload FROM sales_event WHERE order_id=? AND service='inventory'",[event.order_id]);
+      const prior=rows.map(r=>JSON.parse(r.payload)).filter(e=>e.event_type==='reservation.lifecycle'&&e.schema_version===1&&Number.isSafeInteger(e.version)&&e.version>0);
+      const latest=prior.reduce((max,e)=>Math.max(max,e.version),0);
+      insist(!prior.some(e=>e.version===event.version),'Inventory lifecycle version already has a different event reference.',409);
+      const record=()=>q('INSERT INTO sales_event (event_reference,request_reference,order_id,service,payload,created_at) VALUES (?,?,?,?,?,?)',[event.event_reference,event.request_reference,event.order_id,'inventory',JSON.stringify(event),now()]);
+      if(event.version<latest){await record();return {ignored:true,reason:'outdated_version'};}
+      if(event.status==='expired'){
+        insist(order.stock==='reserved'||order.stock==='expired','Only an unpaid active reservation can expire.',409);
+        insist(Number(order.reservation_expires)>0&&event.occurred_at>=Number(order.reservation_expires),'Expiry precedes the authoritative reservation deadline.',409);
+      }
+      if(event.status==='released')insist(['reserved','confirmed','released'].includes(order.stock),'A fulfilled or expired reservation cannot be released.',409);
+      if(event.status==='fulfilled'){
+        text(event.fulfillment_reference,'Fulfillment reference',100);
+        insist(['confirmed','fulfilled'].includes(order.stock)&&order.payment==='verified'&&['accepted','delivered'].includes(order.shipment)&&['fulfilling','completed'].includes(order.order_status)&&!order.reconciliation,'Reservation is not eligible for fulfillment.',409);
+      }
+      if(event.status==='fulfilled')await q("UPDATE sales_order_facts SET stock='fulfilled',reservation_expires=NULL WHERE order_id=?",[event.order_id]);
+      else {
+        const message=event.status==='expired'?'Inventory verified reservation expiry. Payment and fulfillment are blocked pending cancellation or reconciliation.':'Inventory verified reservation release. Progress is paused pending cancellation or reconciliation.';
+        await q('UPDATE sales_order_facts SET stock=?,reconciliation=? WHERE order_id=?',[event.status,order.order_status==='cancelled'?order.reconciliation:message,event.order_id]);
+        await q("UPDATE sales_outbox SET status='blocked' WHERE order_id=? AND status<>'done' AND ((service='billing' AND action IN ('invoice','verify')) OR (service='delivery') OR (service='inventory' AND action='confirm'))",[event.order_id]);
+        // A lifecycle release is not the cancellation tombstone acknowledgement.
+        // Only the release request result may set release_clear.
+      }
+      await q('UPDATE sales_order_facts SET version=version+1 WHERE order_id=?',[event.order_id]);
+      await record();return {accepted:true,version:event.version};
     });
   }
   async requests(user) { insist(user.role==='staff','Staff access required.',403); return this.db.query('SELECT * FROM sales_outbox ORDER BY created_at DESC LIMIT 500'); }
