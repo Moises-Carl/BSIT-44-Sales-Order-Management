@@ -22,6 +22,12 @@ The page also provides demo sign-in buttons. Demo data persists in `data/demo.sq
 
 **Every demo Catalogue record, reservation, payment, and shipment is simulated.** Simulator controls are restricted to the staff **Demo operations** page. Customer accounts can only access their own orders. No real integrations have been verified.
 
+## Customer accounts and saved drafts
+
+Choose **Create a customer account** at sign-in, then use **My profile** to save contact and default recipient/address details. New orders prefill those details; reopened drafts retain their own saved values. Recipient edits apply only to the current order unless you choose **Save as my default details**. Use **Save draft** beside Continue, then resume through **My orders → Drafts → View order → Continue draft**. Leaving an unsaved order offers Save draft, Discard changes, and Keep editing.
+
+For an existing MySQL installation, configure MYSQL_URL and run **npm.cmd run db:migrate** before starting the updated server. This creates only the additive profile table; SQLite demo upgrades automatically without resetting existing data. See [Accounts and drafts](docs/ACCOUNTS_AND_DRAFTS.md) for migration details, verification and deployment limits.
+
 ## Demo walkthrough
 
 1. Choose **Try a demo account** on the login page and select Sales team. Use **Create order** to enter the three-stage flow.

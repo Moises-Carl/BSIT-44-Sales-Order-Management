@@ -59,7 +59,7 @@ try{
  await fill('[name="recipient_name"]','Alex Santos');await fill('[name="recipient_contact"]','09171234567');await fill('[name="requested_delivery_address"]','123 Test Street, Manila');
  await click('[data-action="stage"][data-stage="1"]');await click('.stage-navigation [data-action="stage-next"]');assert.equal(await evaluate("document.querySelector('[name=\"recipient_name\"]').value"),'Alex Santos');
  await screenshot('recipient-desktop');await viewport(390,844);await noOverflow('Mobile recipient');await screenshot('recipient-mobile');await viewport(1440);
- await click('.stage-navigation [data-action="stage-next"]');await wait("document.querySelector('#accept-prices')");assert.ok(await evaluate("document.querySelector('[data-action=\"submit-order\"]').disabled"));await screenshot('review-desktop');
+ await click('.stage-navigation [data-action="stage-next"]');await wait("document.querySelector('#accept-prices')");assert.ok(await evaluate("document.querySelector('[data-action=\"submit-order\"]').disabled"));assert.ok(await evaluate("!document.querySelector('.panel-body > .note.warning')"),'Unchanged draft prices should not show a change warning');await screenshot('review-desktop');
  await db.query("UPDATE seller_offer SET selling_price='99.99' WHERE offer_id=1");
  await click('#accept-prices');await click('[data-action="submit-order"]');await wait("document.querySelector('[data-form-error]')?.textContent.includes('changed')");
  assert.equal(await evaluate("document.querySelector('#accept-prices').checked"),false);assert.ok(await evaluate("document.querySelector('[data-action=\"submit-order\"]').disabled"));await screenshot('changed-price-review');
@@ -103,7 +103,7 @@ try{
  assert.equal(await evaluate("window.__fetch('/api/operations/requests').then(r=>r.status)"),403);
  await screenshot('customer-orders-desktop');await viewport(390,844);await noOverflow('Customer mobile orders');await screenshot('customer-orders-mobile');
  await nav('new',"document.querySelector('#seller-select')");await click('[data-action="add-item"][data-id="1"]');await click('.stage-navigation [data-action="stage-next"]');await wait("document.querySelector('#draft-form')");assert.ok(await evaluate("!document.querySelector('[name=\"customer_id\"]')"));await noOverflow('Customer mobile draft');await screenshot('customer-recipient-mobile');
- await nav('order/1',"document.querySelector('.page-head .badge')?.textContent==='Completed'");assert.ok(await evaluate("!document.querySelector('[data-action=\"cancel\"]')"));
+ await evaluate("location.hash='order/1'");await wait("document.querySelector('[data-action=\"discard-draft\"]')");await click('[data-action="discard-draft"]');await wait("document.querySelector('.page-head .badge')?.textContent==='Completed'");assert.ok(await evaluate("!document.querySelector('[data-action=\"cancel\"]')"));
  await click('.mobile-signout');await wait("document.querySelector('#login-form')");
  // Keyboard focus and reduced motion checks use the browser, not DOM-only assumptions.
  await cdp('Input.dispatchKeyEvent',{type:'keyDown',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});await cdp('Input.dispatchKeyEvent',{type:'keyUp',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});assert.ok(await evaluate("document.activeElement!==document.body"));

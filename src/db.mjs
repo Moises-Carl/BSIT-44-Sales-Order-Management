@@ -49,9 +49,11 @@ export async function connect({ demo = false, file = 'data/demo.sqlite', mysqlUr
   if (demo) await initializeDemo(db, sqlite);
   return db;
 }
+export const profileSchema = `CREATE TABLE IF NOT EXISTS sales_customer_profile (customer_id INTEGER PRIMARY KEY, default_recipient_name VARCHAR(150) NOT NULL, default_delivery_address TEXT NOT NULL)`;
 export const extensions = (mysql = false) => {
   const id = mysql ? 'INTEGER PRIMARY KEY AUTO_INCREMENT' : 'INTEGER PRIMARY KEY AUTOINCREMENT';
   return [
+    profileSchema,
     `CREATE TABLE IF NOT EXISTS sales_user (user_id ${id}, email VARCHAR(255) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL, role VARCHAR(20) NOT NULL, customer_id INTEGER)`,
     `CREATE TABLE IF NOT EXISTS sales_session (token VARCHAR(100) PRIMARY KEY, user_id INTEGER NOT NULL, csrf VARCHAR(100) NOT NULL, expires BIGINT NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS sales_order_facts (order_id INTEGER PRIMARY KEY, version INTEGER NOT NULL DEFAULT 1, stock VARCHAR(30) NOT NULL DEFAULT 'none', payment VARCHAR(30) NOT NULL DEFAULT 'none', shipment VARCHAR(30) NOT NULL DEFAULT 'none', reservation_json TEXT, reservation_expires BIGINT, invoice_reference VARCHAR(100), transaction_reference VARCHAR(100), tracking_reference VARCHAR(100), reconciliation TEXT, billing_clear INTEGER NOT NULL DEFAULT 0, release_clear INTEGER NOT NULL DEFAULT 0)`,

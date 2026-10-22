@@ -4,13 +4,14 @@ import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { connect } from './db.mjs';
+import { Accounts } from './accounts.mjs';
 import { Sales } from './sales.mjs';
 import { Integrations, authentic } from './integrations.mjs';
 import { insist, passwordMatches, Problem } from './util.mjs';
 const root=fileURLToPath(new URL('../public/',import.meta.url));
 const loginAttempts=new Map();
 export function application(db) {
-  const sales=new Sales(db), integrations=new Integrations(sales);
+  const accounts=new Accounts(db), sales=new Sales(db), integrations=new Integrations(sales);
   const server=createServer(async(req,res)=>{
     const send=(code,data)=>{res.writeHead(code,{'content-type':'application/json; charset=utf-8'});res.end(JSON.stringify(data));};
     res.setHeader('X-Content-Type-Options','nosniff');
@@ -46,13 +47,15 @@ export function application(db) {
         insist(req.headers['content-type']?.startsWith('application/json'),'JSON content type required.',415);
       }
       if(path==='/api/config'&&req.method==='GET') return send(200,{demo:db.demo,currency:'PHP'});
-      if(path==='/api/login'&&req.method==='POST') {
+      if(['/api/login','/api/register'].includes(path)&&req.method==='POST') {
         const key=req.socket.remoteAddress, attempt=loginAttempts.get(key);
         const record=attempt&&attempt.until>Date.now()?attempt:{count:0,until:Date.now()+900000};
         loginAttempts.set(key,record); insist(++record.count<=25,'Too many login attempts. Retry in 15 minutes.',429);
         const email=typeof data.email==='string'?data.email.toLowerCase().trim():'';
-        const [user]=await db.query('SELECT * FROM sales_user WHERE email=?',[email]);
-        insist(user&&typeof data.password==='string'&&data.password.length<=200&&passwordMatches(data.password,user.password_hash),'Email or password is incorrect.',401);
+        let user;
+        if(path==='/api/register') user=await accounts.register(data);
+        else [user]=await db.query('SELECT * FROM sales_user WHERE email=?',[email]);
+        if(path==='/api/login') insist(user&&typeof data.password==='string'&&data.password.length<=200&&passwordMatches(data.password,user.password_hash),'Email or password is incorrect.',401);
         loginAttempts.delete(key);
         const token=randomBytes(32).toString('hex'), csrf=randomBytes(24).toString('hex');
         await db.tx(async q=>{await q('DELETE FROM sales_session WHERE expires<?',[Date.now()]);await q('INSERT INTO sales_session (token,user_id,csrf,expires) VALUES (?,?,?,?)',[token,user.user_id,csrf,Date.now()+8*3600000]);});
@@ -65,6 +68,8 @@ export function application(db) {
       if(req.method!=='GET') insist(req.headers['x-csrf-token']===user.csrf,'Session verification failed. Refresh and try again.',403);
       if(path==='/api/me'&&req.method==='GET') return send(200,{user,csrf:user.csrf});
       if(path==='/api/logout'&&req.method==='POST') {await db.tx(q=>q('DELETE FROM sales_session WHERE token=?',[token]));res.setHeader('Set-Cookie','sales_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');return send(200,{ok:true});}
+      if(path==='/api/profile'&&req.method==='GET') return send(200,await accounts.profile(user));
+      if(path==='/api/profile'&&req.method==='PUT') return send(200,await accounts.update(data,user));
       if(path==='/api/offers'&&req.method==='GET') return send(200,await sales.offers());
       if(path==='/api/customers') {
         if(req.method==='GET') return send(200,await sales.customers(user));

@@ -4,3 +4,8 @@
 td small{font-size:13px}.next-step{font-size:13px}.view-link{font-size:14px}.offer-row p{font-size:13px}.toolbar label{font-size:13px}.filter-scope{line-height:1.65}.nav-link{white-space:normal}.summary-column{position:sticky;top:22px}.summary{position:static}@media(max-width:780px){.summary-column{position:static}.toolbar label{font-size:12px}.view-link{font-size:13px}.offer-row p{font-size:12px}.filter-scope{font-size:11px}}
 
 .next-step-banner.warning{background:#fff6e4;color:#805b20;border-color:#e6d6ac}
+
+.current-step{font-weight:600;color:#236247;margin:0 0 20px}.saved-details{padding:16px;background:#f5f7ef;border-radius:10px}.saved-details .field-hint{margin:12px 0}.profile-panel{max-width:900px}.account-switch{margin-top:20px}.stage-navigation,.review-actions{border-top:1px solid #d9dfd1;background:#f2f5ec;padding:20px;border-radius:0 0 12px 12px;gap:16px}.stage-navigation .actions,.review-actions .actions{display:flex;gap:10px}.stage-navigation:empty{display:none}.login-form{overflow:auto}.login-card{padding-top:28px;padding-bottom:28px}
+@media(max-width:600px){.stage-navigation,.review-actions{align-items:stretch;flex-direction:column;padding:16px}.stage-navigation .actions,.review-actions .actions{flex-wrap:wrap}.stage-navigation .actions button,.review-actions .actions button{flex:1;min-width:120px}.saved-details .actions{flex-wrap:wrap}.current-step{font-size:14px}.modal-actions{flex-wrap:wrap}.stages button{font-size:12px;padding:8px 3px}.stages .stage-number{flex-shrink:0}}
+
+.stage-navigation[hidden]{display:none}

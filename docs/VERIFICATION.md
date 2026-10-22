@@ -12,3 +12,8 @@ Browser QA uses the installed Windows Microsoft Edge, an ephemeral local server,
 The original UI redesign checks remain documented in [UI_IMPROVEMENTS.md](UI_IMPROVEMENTS.md); its 38-test count describes that earlier stage. The latest suite adds regressions for confirmed non-expiring stock, canonical event comparisons, signed versioned Inventory lifecycle updates, cancellation flags and transport behavior.
 
 MySQL and real external integrations remain unverified. Local mock/simulator success does not prove another group's implementation is compatible. See [INVENTORY_LIFECYCLE.md](INVENTORY_LIFECYCLE.md) for the implemented contract and [DECISIONS.md](DECISIONS.md) for policies requiring group agreement.
+
+
+## Customer account and draft update
+
+61 backend/HTTP/presentation tests pass. Both `node tests/browser-qa.mjs` and `node tests/browser-accounts.mjs` pass in local Edge. See [account/draft verification](ACCOUNTS_AND_DRAFTS.md) for the complete coverage, screenshots, additive migration and live deployment limits.

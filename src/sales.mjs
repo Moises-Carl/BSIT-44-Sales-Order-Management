@@ -61,7 +61,7 @@ export class Sales {
     let total=0;
     for(const item of items) total+=money(item.selling_price)*item.quantity;
     insist(Number.isSafeInteger(total)&&total<=999999999999,'Order exceeds the supported total.');
-    const clean=(value,max)=>typeof value==='string' ? value.trim().slice(0,max) : '';
+    const clean=(value,max)=>{insist(value===undefined||value===null||typeof value==='string','Recipient details must be text.');insist(!value||value.trim().length<=max,'Recipient details exceed the supported length.');return value?.trim()||'';};
     return {customerId,sellerId,items,total,recipient_name:clean(data.recipient_name,150),recipient_contact:clean(data.recipient_contact,30),address:clean(data.requested_delivery_address,3000)};
   }
   async save(data,user,id) {
@@ -80,7 +80,8 @@ export class Sales {
         await q('UPDATE sales_order_facts SET version=version+1 WHERE order_id=?',[id]);
       }
       for(const item of n.items) await q('INSERT INTO order_item (order_id,seller_id,offer_id,product_name_at_order,quantity,unit_price_at_order) VALUES (?,?,?,?,?,?)',[id,n.sellerId,item.offer_id,item.product_name,item.quantity,item.selling_price]);
-      return {order_id:id};
+      const [facts]=await q('SELECT version FROM sales_order_facts WHERE order_id=?',[id]);
+      return {order_id:id,version:facts.version};
     });
   }
   async quote(q,order) {
