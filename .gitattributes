@@ -1,0 +1,3 @@
+* text=auto eol=lf
+# Keep supplied reference files byte-for-byte identical to their source manifest.
+MiniERP_Sales_Order_Codex_Package/** -text
